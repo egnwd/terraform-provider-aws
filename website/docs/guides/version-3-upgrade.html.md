@@ -22,6 +22,7 @@ Upgrade topics:
 - [Data Source: aws_availability_zones](#data-source-aws_availability_zones)
 - [Data Source: aws_lambda_invocation](#data-source-aws_lambda_invocation)
 - [Resource: aws_emr_cluster](#resource-aws_emr_cluster)
+- [Resource: aws_s3_bucket](#resource-aws_s3_bucket)
 
 <!-- /TOC -->
 
@@ -285,5 +286,29 @@ resource "aws_lb_listener_rule" "example" {
       values = ["/static/*"]
     }
   }
+}
+```
+
+## Resource: aws_s3_bucket
+
+### region Attribute Is Now Read-Only
+
+The `region` attribute is no longer configurable, but it remains as a read-only attribute. The region of the `aws_s3_bucket` resource is determined by the region of the Terraform AWS Provider, similar to all other resources.
+
+For example, given this previous configuration:
+
+```hcl
+resource "aws_s3_bucket" "example" {
+  # ... other configuration ...
+
+  region = "us-west-2"
+}
+```
+
+An updated configuration:
+
+```hcl
+resource "aws_s3_bucket" "example" {
+  # ... other configuration ...
 }
 ```
