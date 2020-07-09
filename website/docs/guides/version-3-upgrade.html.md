@@ -21,6 +21,7 @@ Upgrade topics:
 - [Provider Version Configuration](#provider-version-configuration)
 - [Data Source: aws_availability_zones](#data-source-aws_availability_zones)
 - [Data Source: aws_lambda_invocation](#data-source-aws_lambda_invocation)
+- [Resource: aws_autoscaling_group](#resource-aws_autoscaling_group)
 - [Resource: aws_emr_cluster](#resource-aws_emr_cluster)
 
 <!-- /TOC -->
@@ -118,6 +119,65 @@ An updated configuration:
 # to convert a result JSON string to native Terraform types.
 output "lambda_result" {
   value = jsondecode(data.aws_lambda_invocation.example.result)["key1"]
+}
+```
+
+## Resource: aws_autoscaling_group
+
+### Drift detection enabled for `load_balancers` and `target_group_arns` arguments
+
+If you previously set one of these arguments to an empty list to enable drift detection (e.g. when migrating an ASG from ELB to ALB), this can be updated as follows.
+
+For example, given this previous configuration:
+
+```hcl
+resource "aws_autoscaling_group" "example" {
+  # ... other configuration ...
+  load_balancers = []
+  target_group_arns = [aws_lb_target_group.example.arn]
+}
+```
+
+An updated configuration:
+
+```hcl
+resource "aws_autoscaling_group" "example" {
+  # ... other configuration ...
+  target_group_arns = [aws_lb_target_group.example.arn]
+}
+```
+
+If `aws_autoscaling_attachment` resources reference your ASG configurations, you will need to add the [`lifecycle` configuration block](/docs/configuration/resources.html#lifecycle-lifecycle-customizations) with an `ignore_changes` argument to prevent Terraform non-empty plans (i.e. forcing resource update) during the next state refresh.
+
+For example, given this previous configuration:
+
+```hcl
+resource "aws_autoscaling_attachment" "example" {
+  autoscaling_group_name = aws_autoscaling_group.example.id
+  elb                    = aws_elb.example.id
+}
+
+resource "aws_autoscaling_group" "example"{
+  # ... other configuration ...
+  load_balancers = [aws_elb.example.id]  
+}
+```
+
+An updated configuration:
+
+```hcl
+resource "aws_autoscaling_attachment" "example" {
+  autoscaling_group_name = aws_autoscaling_group.example.id
+  elb                    = aws_elb.example.id
+}
+
+resource "aws_autoscaling_group" "example"{
+  # ... other configuration ...
+  load_balancers = [aws_elb.example.id]
+
+  lifecycle {
+    ignore_changes = [load_balancers, target_group_arns]
+  }
 }
 ```
 
