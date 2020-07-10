@@ -19,6 +19,10 @@ func resourceAwsEc2ClientVpnNetworkAssociation() *schema.Resource {
 		Delete: resourceAwsEc2ClientVpnNetworkAssociationDelete,
 
 		Schema: map[string]*schema.Schema{
+			"association_id": {
+				Type:     schema.TypeString,
+				Computed: true,
+			},
 			"client_vpn_endpoint_id": {
 				Type:     schema.TypeString,
 				Required: true,
