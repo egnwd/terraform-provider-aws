@@ -1,5 +1,9 @@
 package aws
 
+import (
+	"encoding/json"
+)
+
 type SfnStateMachineDefinition struct {
 	Comment string                 `json:",omitempty"`
 	StartAt string                 `json:""`
@@ -34,4 +38,39 @@ type SfnStateMachineFailState struct {
 	Comment string `json:",omitempty"`
 	Cause   string `json:",omitempty"`
 	Error   string `json:",omitempty"`
+}
+
+type SfnStateMachineChoiceState struct {
+	SfnStateMachineState
+	Choices []*SfnStateMachineChoiceRule `json:""`
+	Default string                       `json:",omitempty"`
+}
+
+type SfnStateMachineChoiceRule struct {
+	Comparison map[string]interface{} `json:"-"`
+	Next       string                 `json:""`
+}
+
+func (cr SfnStateMachineChoiceRule) MarshalJSON() ([]byte, error) {
+	type SfnStateMachineChoiceRule_ SfnStateMachineChoiceRule // prevent recursion
+	b, err := json.Marshal(SfnStateMachineChoiceRule_(cr))
+	if err != nil {
+		return nil, err
+	}
+
+	var m map[string]json.RawMessage
+	err = json.Unmarshal(b, &m)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range cr.Comparison {
+		b, err = json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		m[k] = b
+	}
+
+	return json.Marshal(m)
 }

@@ -54,6 +54,13 @@ func dataSourceAwsSfnStateMachineDefinition() *schema.Resource {
 					Schema: dataSourceAwsSfnStateMachineDefinitionFailState(),
 				},
 			},
+			"choice": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: dataSourceAwsSfnStateMachineDefinitionChoiceState(),
+				},
+			},
 			"json": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -133,6 +140,7 @@ var dataSourceAwsSfnStateMachineDefinitionStateReadFns map[string]stateMachineRe
 	"pass":    dataSourceAwsSfnStateMachineDefinitionStatePassRead,
 	"succeed": dataSourceAwsSfnStateMachineDefinitionStateSucceedRead,
 	"fail":    dataSourceAwsSfnStateMachineDefinitionStateFailRead,
+	"choice":  dataSourceAwsSfnStateMachineDefinitionStateChoiceRead,
 }
 
 func dataSourceAwsSfnStateMachineDefinitionStateKeys() []string {
@@ -252,6 +260,55 @@ func dataSourceAwsSfnStateMachineDefinitionStateFailRead(cfgState map[string]int
 	return state, nil
 }
 
+func dataSourceAwsSfnStateMachineDefinitionStateChoiceRead(cfgState map[string]interface{}) (interface{}, error) {
+	state := &SfnStateMachineChoiceState{} // Cannot use CommonRead because Choice ignores Next & End
+
+	state.Type = "Choice"
+
+	if cfgComment, hasCfgComment := cfgState["comment"]; hasCfgComment {
+		state.Comment = cfgComment.(string)
+	}
+
+	if cfgInputPath := cfgState["input_path"].(string); len(cfgInputPath) > 0 {
+		state.InputPath = &cfgInputPath
+	}
+
+	if cfgOutputPath := cfgState["output_path"].(string); len(cfgOutputPath) > 0 {
+		state.OutputPath = &cfgOutputPath
+	}
+
+	cfgChoices := cfgState["option"].([]interface{})
+	choices := make([]*SfnStateMachineChoiceRule, len(cfgChoices))
+
+	for i, choiceI := range cfgChoices {
+		choice := &SfnStateMachineChoiceRule{}
+		cfgChoice := choiceI.(map[string]interface{})
+
+		comparisonJson := cfgChoice["comparison"].(string)
+		comparison := make(map[string]interface{})
+		err := json.Unmarshal([]byte(comparisonJson), &comparison)
+		if err != nil {
+			// Shouldn't happen due to validation
+			return nil, fmt.Errorf("invalid comparison JSON: %s", err)
+		}
+		choice.Comparison = comparison
+
+		if cfgNext, hasCfgNext := cfgChoice["next"]; hasCfgNext {
+			choice.Next = cfgNext.(string)
+		}
+
+		choices[i] = choice
+	}
+
+	state.Choices = choices
+
+	if cfgDefault, hasCfgDefault := cfgState["default"]; hasCfgDefault {
+		state.Default = cfgDefault.(string)
+	}
+
+	return state, nil
+}
+
 // Schemas
 
 func dataSourceAwsSfnStateMachineDefinitionCommonState() map[string]*schema.Schema {
@@ -340,4 +397,36 @@ func dataSourceAwsSfnStateMachineDefinitionFailState() map[string]*schema.Schema
 			Optional: true,
 		},
 	}
+}
+
+func dataSourceAwsSfnStateMachineDefinitionChoiceState() map[string]*schema.Schema {
+	passSchema := map[string]*schema.Schema{
+		"option": {
+			Type:     schema.TypeList,
+			Required: true,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"next": {
+						Type:     schema.TypeString,
+						Required: true,
+					},
+					"comparison": {
+						Type:         schema.TypeString,
+						Required:     true,
+						ValidateFunc: validation.StringIsJSON,
+					},
+				},
+			},
+		},
+		"default": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+	}
+
+	for k, v := range dataSourceAwsSfnStateMachineDefinitionCommonState() {
+		passSchema[k] = v
+	}
+
+	return passSchema
 }

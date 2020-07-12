@@ -74,6 +74,23 @@ func TestAccAWSDataSourceSfnDefinition_fail(t *testing.T) {
 	})
 }
 
+func TestAccAWSDataSourceSfnDefinition_choice(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSSfnStateMachineDefinitionChoiceConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
+						testAccAWSSfnStateMachineDefinitionChoiceJSON,
+					),
+				),
+			},
+		},
+	})
+}
+
 var testAccAWSSfnStateMachineDefinitionCommonConfig = `
 data "aws_sfn_state_machine_definition" "test" {
     comment   = "Foo Bar"
@@ -136,14 +153,14 @@ data "aws_sfn_state_machine_definition" "test" {
         end         = true
 
         result_path = "$"
-        result      = <<EOF
-{
-  "a": 123,
-  "foo": {
-    "b": [true, false]
-  }
-}
-EOF
+        result      = <<-EOF
+        {
+          "a": 123,
+          "foo": {
+            "b": [true, false]
+          }
+        }
+        EOF
     }
 }
 `
@@ -214,6 +231,65 @@ var testAccAWSSfnStateMachineDefinitionFailJSON = `{
       "Type": "Fail",
       "Cause": "Invalid response.",
       "Error": "ErrorA"
+    }
+  }
+}`
+
+var testAccAWSSfnStateMachineDefinitionChoiceConfig = `
+data "aws_sfn_state_machine_definition" "test" {
+    start_at  = "Should Fail?"
+
+    choice {
+        name    = "Should Fail?"
+        default = "No"
+
+        input_path  = "$"
+        output_path = "$"
+
+        option {
+            next       = "Yes"
+            comparison = <<-EOF
+            {
+                "Variable": "$.value",
+                "NumericEquals": 0
+            }
+            EOF
+        }
+
+        option {
+            next       = "Yes"
+            comparison = <<-EOF
+            {
+                "Variable": "$.value",
+                "NumericGreaterThanEquals": 10
+            }
+            EOF
+        }
+    }
+}
+`
+
+var testAccAWSSfnStateMachineDefinitionChoiceJSON = `{
+  "StartAt": "Should Fail?",
+  "Version": "1.0",
+  "States": {
+    "Should Fail?": {
+      "Type": "Choice",
+      "InputPath": "$",
+      "OutputPath": "$",
+      "Choices": [
+        {
+          "Next": "Yes",
+          "NumericEquals": 0,
+          "Variable": "$.value"
+        },
+        {
+          "Next": "Yes",
+          "NumericGreaterThanEquals": 10,
+          "Variable": "$.value"
+        }
+      ],
+      "Default": "No"
     }
   }
 }`
