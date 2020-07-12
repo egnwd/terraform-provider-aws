@@ -35,9 +35,16 @@ func dataSourceAwsSfnStateMachineDefinition() *schema.Resource {
 			},
 			"pass": {
 				Type:     schema.TypeList,
-				Required: true,
+				Optional: true,
 				Elem: &schema.Resource{
 					Schema: dataSourceAwsSfnStateMachineDefinitionPassState(),
+				},
+			},
+			"succeed": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: dataSourceAwsSfnStateMachineDefinitionSucceedState(),
 				},
 			},
 			"json": {
@@ -63,10 +70,17 @@ func dataSourceAwsSfnStateMachineDefinitionRead(d *schema.ResourceData, meta int
 		dfn.Timeout = dfnTimeout.(int)
 	}
 
-	states, err := dataSourceAwsSfnStateMachineDefinitionStateRead(d, "pass")
-	if err != nil {
-		fmt.Errorf("error reading pass states: %s", err)
+	states := make(map[string]interface{})
+	for _, typ := range []string{"pass", "succeed"} {
+		partialStates, err := dataSourceAwsSfnStateMachineDefinitionStateRead(d, typ)
+		if err != nil {
+			fmt.Errorf("error reading %s states: %s", typ, err)
+		}
+		for k, state := range partialStates {
+			states[k] = state
+		}
 	}
+
 	dfn.States = states
 
 	jsonDfn, err := json.MarshalIndent(dfn, "", "  ")
@@ -109,7 +123,8 @@ func dataSourceAwsSfnStateMachineDefinitionStateRead(d *schema.ResourceData, typ
 type stateMachineReadFunc = func(cfgState map[string]interface{}) (interface{}, error)
 
 var dataSourceAwsSfnStateMachineDefinitionStateReadFns map[string]stateMachineReadFunc = map[string]stateMachineReadFunc{
-	"pass": dataSourceAwsSfnStateMachineDefinitionStatePassRead,
+	"pass":    dataSourceAwsSfnStateMachineDefinitionStatePassRead,
+	"succeed": dataSourceAwsSfnStateMachineDefinitionStateSucceedRead,
 }
 
 func dataSourceAwsSfnStateMachineDefinitionStateCommonRead(cfgState map[string]interface{}) (interface{}, error) {
@@ -188,6 +203,18 @@ func dataSourceAwsSfnStateMachineDefinitionStatePassRead(cfgState map[string]int
 	return state, nil
 }
 
+func dataSourceAwsSfnStateMachineDefinitionStateSucceedRead(cfgState map[string]interface{}) (interface{}, error) {
+	state := &SfnStateMachineSucceedState{}
+
+	state.Type = "Succeed"
+
+	if cfgComment, hasCfgComment := cfgState["comment"]; hasCfgComment {
+		state.Comment = cfgComment.(string)
+	}
+
+	return state, nil
+}
+
 // Schemas
 
 func dataSourceAwsSfnStateMachineDefinitionCommonState() map[string]*schema.Schema {
@@ -242,4 +269,17 @@ func dataSourceAwsSfnStateMachineDefinitionPassState() map[string]*schema.Schema
 	}
 
 	return passSchema
+}
+
+func dataSourceAwsSfnStateMachineDefinitionSucceedState() map[string]*schema.Schema {
+	return map[string]*schema.Schema{
+		"name": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"comment": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+	}
 }

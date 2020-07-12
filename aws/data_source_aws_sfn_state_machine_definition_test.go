@@ -40,6 +40,23 @@ func TestAccAWSDataSourceSfnDefinition_pass(t *testing.T) {
 	})
 }
 
+func TestAccAWSDataSourceSfnDefinition_succeed(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSSfnStateMachineDefinitionSucceedConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
+						testAccAWSSfnStateMachineDefinitionSucceedJSON,
+					),
+				),
+			},
+		},
+	})
+}
+
 var testAccAWSSfnStateMachineDefinitionCommonConfig = `
 data "aws_sfn_state_machine_definition" "test" {
     comment   = "Foo Bar"
@@ -134,6 +151,28 @@ var testAccAWSSfnStateMachineDefinitionPassJSON = `{
         }
       },
       "ResultPath": "$"
+    }
+  }
+}`
+
+var testAccAWSSfnStateMachineDefinitionSucceedConfig = `
+data "aws_sfn_state_machine_definition" "test" {
+    start_at  = "State1"
+
+    succeed {
+        name    = "State1"
+        comment = "Yay! Success!"
+    }
+}
+`
+
+var testAccAWSSfnStateMachineDefinitionSucceedJSON = `{
+  "StartAt": "State1",
+  "Version": "1.0",
+  "States": {
+    "State1": {
+      "Type": "Succeed",
+      "Comment": "Yay! Success!"
     }
   }
 }`

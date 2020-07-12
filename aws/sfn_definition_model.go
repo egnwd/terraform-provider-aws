@@ -23,3 +23,8 @@ type SfnStateMachinePassState struct {
 	ResultPath *string                `json:""`
 	Parameters map[string]interface{} `json:",omitempty"`
 }
+
+type SfnStateMachineSucceedState struct {
+	Type    string `json:""`
+	Comment string `json:",omitempty"`
+}
