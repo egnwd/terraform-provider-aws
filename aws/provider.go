@@ -322,6 +322,7 @@ func Provider() terraform.ResourceProvider {
 			"aws_servicequotas_service_quota":                dataSourceAwsServiceQuotasServiceQuota(),
 			"aws_sfn_activity":                               dataSourceAwsSfnActivity(),
 			"aws_sfn_state_machine":                          dataSourceAwsSfnStateMachine(),
+			"aws_sfn_state_machine_definition":               dataSourceAwsSfnStateMachineDefinition(),
 			"aws_sns_topic":                                  dataSourceAwsSnsTopic(),
 			"aws_sqs_queue":                                  dataSourceAwsSqsQueue(),
 			"aws_ssm_document":                               dataSourceAwsSsmDocument(),
