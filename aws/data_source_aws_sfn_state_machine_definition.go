@@ -33,43 +33,11 @@ func dataSourceAwsSfnStateMachineDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "1.0",
 			},
-			"state": {
+			"pass": {
 				Type:     schema.TypeList,
 				Required: true,
 				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"name": {
-							Type:     schema.TypeString,
-							Required: true,
-						},
-						"type": {
-							Type:     schema.TypeString,
-							Required: true,
-							ValidateFunc: validation.StringInSlice([]string{
-								"Pass",
-							}, false),
-						},
-						"next": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-						"end": {
-							Type:     schema.TypeBool,
-							Optional: true,
-						},
-						"comment": {
-							Type:     schema.TypeString,
-							Optional: true,
-						},
-						"input_path": {
-							Type:     schema.TypeString,
-							Required: true,
-						},
-						"output_path": {
-							Type:     schema.TypeString,
-							Required: true,
-						},
-					},
+					Schema: dataSourceAwsSfnStateMachineDefinitionPassState(),
 				},
 			},
 			"json": {
@@ -95,28 +63,16 @@ func dataSourceAwsSfnStateMachineDefinitionRead(d *schema.ResourceData, meta int
 		dfn.Timeout = dfnTimeout.(int)
 	}
 
-	cfgStates := d.Get("state").([]interface{})
-	states := make(map[string]*SfnStateMachineState)
-
-	for _, stateI := range cfgStates {
-		cfgState := stateI.(map[string]interface{})
-		n := cfgState["name"].(string)
-
-		state, err := dataSourceAwsSfnStateMachineDefinitionStateRead(cfgState)
-		if err != nil {
-			return fmt.Errorf("error reading state (%s): %s", n, err)
-		}
-
-		states[n] = state
+	states, err := dataSourceAwsSfnStateMachineDefinitionStateRead(d, "pass")
+	if err != nil {
+		fmt.Errorf("error reading pass states: %s", err)
 	}
-
 	dfn.States = states
 
 	jsonDfn, err := json.MarshalIndent(dfn, "", "  ")
 	if err != nil {
 		return err
 	}
-
 	jsonString := string(jsonDfn)
 
 	d.Set("json", jsonString)
@@ -125,9 +81,39 @@ func dataSourceAwsSfnStateMachineDefinitionRead(d *schema.ResourceData, meta int
 	return nil
 }
 
-func dataSourceAwsSfnStateMachineDefinitionStateRead(cfgState map[string]interface{}) (*SfnStateMachineState, error) {
+func dataSourceAwsSfnStateMachineDefinitionStateRead(d *schema.ResourceData, typ string) (map[string]interface{}, error) {
+	states := make(map[string]interface{})
+	cfgStates := d.Get(typ).([]interface{})
+
+	fn, ok := dataSourceAwsSfnStateMachineDefinitionStateReadFns[typ]
+	if !ok {
+		return states, fmt.Errorf("error reading type %s", typ)
+	}
+
+	for _, stateI := range cfgStates {
+		cfgState := stateI.(map[string]interface{})
+		n := cfgState["name"].(string)
+
+		state, err := fn(cfgState)
+		if err != nil {
+			return states, fmt.Errorf("error reading state (%s): %s", n, err)
+		}
+
+		states[n] = state
+	}
+
+	return states, nil
+}
+
+// State Read Functions
+type stateMachineReadFunc = func(cfgState map[string]interface{}) (interface{}, error)
+
+var dataSourceAwsSfnStateMachineDefinitionStateReadFns map[string]stateMachineReadFunc = map[string]stateMachineReadFunc{
+	"pass": dataSourceAwsSfnStateMachineDefinitionStatePassRead,
+}
+
+func dataSourceAwsSfnStateMachineDefinitionStateCommonRead(cfgState map[string]interface{}) (interface{}, error) {
 	state := &SfnStateMachineState{}
-	state.Type = cfgState["type"].(string)
 
 	cfgNext := cfgState["next"].(string)
 	hasCfgNext := len(cfgNext) > 0
@@ -154,16 +140,106 @@ func dataSourceAwsSfnStateMachineDefinitionStateRead(cfgState map[string]interfa
 		state.Comment = cfgComment.(string)
 	}
 
-	cfgInputPath := cfgState["input_path"].(string)
-	cfgOutputPath := cfgState["output_path"].(string)
-
-	if len(cfgInputPath) > 0 {
+	if cfgInputPath := cfgState["input_path"].(string); len(cfgInputPath) > 0 {
 		state.InputPath = &cfgInputPath
 	}
 
-	if len(cfgOutputPath) > 0 {
+	if cfgOutputPath := cfgState["output_path"].(string); len(cfgOutputPath) > 0 {
 		state.OutputPath = &cfgOutputPath
 	}
 
 	return state, nil
+}
+
+func dataSourceAwsSfnStateMachineDefinitionStatePassRead(cfgState map[string]interface{}) (interface{}, error) {
+	commonState, err := dataSourceAwsSfnStateMachineDefinitionStateCommonRead(cfgState)
+	if err != nil {
+		return nil, err
+	}
+
+	state := &SfnStateMachinePassState{
+		SfnStateMachineState: *commonState.(*SfnStateMachineState),
+	}
+
+	state.Type = "Pass"
+
+	if resultJson := cfgState["result"].(string); len(resultJson) > 0 {
+		result := make(map[string]interface{})
+		err := json.Unmarshal([]byte(resultJson), &result)
+		if err != nil {
+			return nil, fmt.Errorf("invalid result JSON: %s", err)
+		}
+		state.Result = result
+	}
+
+	if cfgResultPath := cfgState["result_path"].(string); len(cfgResultPath) > 0 {
+		state.ResultPath = &cfgResultPath
+	}
+
+	if parametersJson := cfgState["parameters"].(string); len(parametersJson) > 0 {
+		parameters := make(map[string]interface{})
+		err := json.Unmarshal([]byte(parametersJson), &parameters)
+		if err != nil {
+			return nil, fmt.Errorf("invalid parameters JSON: %s", err)
+		}
+		state.Parameters = parameters
+	}
+
+	return state, nil
+}
+
+// Schemas
+
+func dataSourceAwsSfnStateMachineDefinitionCommonState() map[string]*schema.Schema {
+	return map[string]*schema.Schema{
+		"name": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"next": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+		"end": {
+			Type:     schema.TypeBool,
+			Optional: true,
+		},
+		"comment": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+		"input_path": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"output_path": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+	}
+}
+
+func dataSourceAwsSfnStateMachineDefinitionPassState() map[string]*schema.Schema {
+	passSchema := map[string]*schema.Schema{
+		"result": {
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validation.StringIsJSON,
+		},
+		"result_path": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"parameters": {
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validation.StringIsJSON,
+		},
+	}
+
+	for k, v := range dataSourceAwsSfnStateMachineDefinitionCommonState() {
+		passSchema[k] = v
+	}
+
+	return passSchema
 }

@@ -6,16 +6,16 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 )
 
-func TestAccAWSDataSourceSfnDefinition_basic(t *testing.T) {
+func TestAccAWSDataSourceSfnDefinition_common(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
 		Providers: testAccProviders,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAWSISfnStateMachineDefintionConfig,
+				Config: testAccAWSSfnStateMachineDefinitionCommonConfig,
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
-						testAccAWSISfnStateMachineDefintionJSON,
+						testAccAWSSfnStateMachineDefinitionCommonJSON,
 					),
 				),
 			},
@@ -23,33 +23,50 @@ func TestAccAWSDataSourceSfnDefinition_basic(t *testing.T) {
 	})
 }
 
-var testAccAWSISfnStateMachineDefintionConfig = `
+func TestAccAWSDataSourceSfnDefinition_pass(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSSfnStateMachineDefinitionPassConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
+						testAccAWSSfnStateMachineDefinitionPassJSON,
+					),
+				),
+			},
+		},
+	})
+}
+
+var testAccAWSSfnStateMachineDefinitionCommonConfig = `
 data "aws_sfn_state_machine_definition" "test" {
     comment   = "Foo Bar"
     start_at  = "State1"
 
-    state {
+    pass {
         name    = "State1"
-        type    = "Pass"
         comment = "Doesn't do anything"
 
         input_path  = "$"
         output_path = ""
+        result_path = "$"
         next        = "State2"
     }
 
-    state {
+    pass {
         name    = "State2"
-        type    = "Pass"
 
         input_path  = "$.data"
         output_path = "$"
+        result_path = "$"
         end         = true
     }
 }
 `
 
-var testAccAWSISfnStateMachineDefintionJSON = `{
+var testAccAWSSfnStateMachineDefinitionCommonJSON = `{
   "Comment": "Foo Bar",
   "StartAt": "State1",
   "Version": "1.0",
@@ -59,13 +76,64 @@ var testAccAWSISfnStateMachineDefintionJSON = `{
       "Next": "State2",
       "Comment": "Doesn't do anything",
       "InputPath": "$",
-      "OutputPath": null
+      "OutputPath": null,
+      "ResultPath": "$"
     },
     "State2": {
       "Type": "Pass",
       "End": true,
       "InputPath": "$.data",
-      "OutputPath": "$"
+      "OutputPath": "$",
+      "ResultPath": "$"
+    }
+  }
+}`
+
+var testAccAWSSfnStateMachineDefinitionPassConfig = `
+data "aws_sfn_state_machine_definition" "test" {
+    comment   = "Foo Bar"
+    start_at  = "State1"
+
+    pass {
+        name    = "State1"
+
+        input_path  = "$"
+        output_path = ""
+        end         = true
+
+        result_path = "$"
+        result      = <<EOF
+{
+  "a": 123,
+  "foo": {
+    "b": [true, false]
+  }
+}
+EOF
+    }
+}
+`
+
+var testAccAWSSfnStateMachineDefinitionPassJSON = `{
+  "Comment": "Foo Bar",
+  "StartAt": "State1",
+  "Version": "1.0",
+  "States": {
+    "State1": {
+      "Type": "Pass",
+      "End": true,
+      "InputPath": "$",
+      "OutputPath": null,
+      "Result": {
+        "a": 123,
+        "foo": {
+          "b": [
+            true,
+            false
+          ]
+        }
+      },
+      "ResultPath": "$"
     }
   }
 }`
