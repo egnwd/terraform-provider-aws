@@ -9,4 +9,10 @@ type SfnStateMachineDefinition struct {
 }
 
 type SfnStateMachineState struct {
+	Type       string  `json:""`
+	Next       string  `json:",omitempty"`
+	End        bool    `json:",omitempty"`
+	Comment    string  `json:",omitempty"`
+	InputPath  *string `json:""`
+	OutputPath *string `json:""`
 }

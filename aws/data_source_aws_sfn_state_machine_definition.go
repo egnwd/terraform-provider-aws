@@ -2,6 +2,7 @@ package aws
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/hashcode"
@@ -41,6 +42,33 @@ func dataSourceAwsSfnStateMachineDefinition() *schema.Resource {
 							Type:     schema.TypeString,
 							Required: true,
 						},
+						"type": {
+							Type:     schema.TypeString,
+							Required: true,
+							ValidateFunc: validation.StringInSlice([]string{
+								"Pass",
+							}, false),
+						},
+						"next": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"end": {
+							Type:     schema.TypeBool,
+							Optional: true,
+						},
+						"comment": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"input_path": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"output_path": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
 					},
 				},
 			},
@@ -72,11 +100,14 @@ func dataSourceAwsSfnStateMachineDefinitionRead(d *schema.ResourceData, meta int
 
 	for _, stateI := range cfgStates {
 		cfgState := stateI.(map[string]interface{})
-		state := &SfnStateMachineState{}
+		n := cfgState["name"].(string)
 
-		stateName := cfgState["name"].(string)
+		state, err := dataSourceAwsSfnStateMachineDefinitionStateRead(cfgState)
+		if err != nil {
+			return fmt.Errorf("error reading state (%s): %s", n, err)
+		}
 
-		states[stateName] = state
+		states[n] = state
 	}
 
 	dfn.States = states
@@ -92,4 +123,47 @@ func dataSourceAwsSfnStateMachineDefinitionRead(d *schema.ResourceData, meta int
 	d.SetId(strconv.Itoa(hashcode.String(jsonString)))
 
 	return nil
+}
+
+func dataSourceAwsSfnStateMachineDefinitionStateRead(cfgState map[string]interface{}) (*SfnStateMachineState, error) {
+	state := &SfnStateMachineState{}
+	state.Type = cfgState["type"].(string)
+
+	cfgNext := cfgState["next"].(string)
+	hasCfgNext := len(cfgNext) > 0
+
+	cfgEnd := cfgState["end"].(bool)
+
+	if !hasCfgNext && !cfgEnd {
+		return state, fmt.Errorf("state has neither next nor end set, exactly one must be specified")
+	}
+
+	if hasCfgNext && cfgEnd {
+		return state, fmt.Errorf("state has both next and end set, exactly one must be specified, %v", cfgState)
+	}
+
+	if hasCfgNext {
+		state.Next = cfgNext
+	}
+
+	if cfgEnd {
+		state.End = cfgEnd
+	}
+
+	if cfgComment, hasCfgComment := cfgState["comment"]; hasCfgComment {
+		state.Comment = cfgComment.(string)
+	}
+
+	cfgInputPath := cfgState["input_path"].(string)
+	cfgOutputPath := cfgState["output_path"].(string)
+
+	if len(cfgInputPath) > 0 {
+		state.InputPath = &cfgInputPath
+	}
+
+	if len(cfgOutputPath) > 0 {
+		state.OutputPath = &cfgOutputPath
+	}
+
+	return state, nil
 }

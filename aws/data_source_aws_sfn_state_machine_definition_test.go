@@ -25,20 +25,47 @@ func TestAccAWSDataSourceSfnDefinition_basic(t *testing.T) {
 
 var testAccAWSISfnStateMachineDefintionConfig = `
 data "aws_sfn_state_machine_definition" "test" {
-	comment   = "Foo Bar"
-	start_at  = "Baz"
+    comment   = "Foo Bar"
+    start_at  = "State1"
 
-	state {
-		name = "Baz"
-	}
+    state {
+        name    = "State1"
+        type    = "Pass"
+        comment = "Doesn't do anything"
+
+        input_path  = "$"
+        output_path = ""
+        next        = "State2"
+    }
+
+    state {
+        name    = "State2"
+        type    = "Pass"
+
+        input_path  = "$.data"
+        output_path = "$"
+        end         = true
+    }
 }
 `
 
 var testAccAWSISfnStateMachineDefintionJSON = `{
   "Comment": "Foo Bar",
-  "StartAt": "Baz",
+  "StartAt": "State1",
   "Version": "1.0",
   "States": {
-    "Baz": {}
+    "State1": {
+      "Type": "Pass",
+      "Next": "State2",
+      "Comment": "Doesn't do anything",
+      "InputPath": "$",
+      "OutputPath": null
+    },
+    "State2": {
+      "Type": "Pass",
+      "End": true,
+      "InputPath": "$.data",
+      "OutputPath": "$"
+    }
   }
 }`
