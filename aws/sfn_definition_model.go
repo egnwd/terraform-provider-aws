@@ -28,3 +28,10 @@ type SfnStateMachineSucceedState struct {
 	Type    string `json:""`
 	Comment string `json:",omitempty"`
 }
+
+type SfnStateMachineFailState struct {
+	Type    string `json:""`
+	Comment string `json:",omitempty"`
+	Cause   string `json:",omitempty"`
+	Error   string `json:",omitempty"`
+}

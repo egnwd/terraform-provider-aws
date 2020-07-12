@@ -57,6 +57,23 @@ func TestAccAWSDataSourceSfnDefinition_succeed(t *testing.T) {
 	})
 }
 
+func TestAccAWSDataSourceSfnDefinition_fail(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSSfnStateMachineDefinitionFailConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
+						testAccAWSSfnStateMachineDefinitionFailJSON,
+					),
+				),
+			},
+		},
+	})
+}
+
 var testAccAWSSfnStateMachineDefinitionCommonConfig = `
 data "aws_sfn_state_machine_definition" "test" {
     comment   = "Foo Bar"
@@ -173,6 +190,30 @@ var testAccAWSSfnStateMachineDefinitionSucceedJSON = `{
     "State1": {
       "Type": "Succeed",
       "Comment": "Yay! Success!"
+    }
+  }
+}`
+
+var testAccAWSSfnStateMachineDefinitionFailConfig = `
+data "aws_sfn_state_machine_definition" "test" {
+    start_at  = "State1"
+
+    fail {
+        name  = "State1"
+        cause = "Invalid response."
+        error = "ErrorA" 
+    }
+}
+`
+
+var testAccAWSSfnStateMachineDefinitionFailJSON = `{
+  "StartAt": "State1",
+  "Version": "1.0",
+  "States": {
+    "State1": {
+      "Type": "Fail",
+      "Cause": "Invalid response.",
+      "Error": "ErrorA"
     }
   }
 }`
