@@ -51,6 +51,14 @@ type SfnStateMachineChoiceRule struct {
 	Next       string                 `json:""`
 }
 
+type SfnStateMachineWaitState struct {
+	SfnStateMachineState
+	SecondsPath   *string `json:",omitempty"`
+	TimestampPath *string `json:",omitempty"`
+	Timestamp     *string `json:",omitempty"`
+	Seconds       *int    `json:",omitempty"`
+}
+
 func (cr SfnStateMachineChoiceRule) MarshalJSON() ([]byte, error) {
 	type SfnStateMachineChoiceRule_ SfnStateMachineChoiceRule // prevent recursion
 	b, err := json.Marshal(SfnStateMachineChoiceRule_(cr))

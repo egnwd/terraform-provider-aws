@@ -91,6 +91,23 @@ func TestAccAWSDataSourceSfnDefinition_choice(t *testing.T) {
 	})
 }
 
+func TestAccAWSDataSourceSfnDefinition_wait(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSSfnStateMachineDefinitionWaitConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
+						testAccAWSSfnStateMachineDefinitionWaitJSON,
+					),
+				),
+			},
+		},
+	})
+}
+
 var testAccAWSSfnStateMachineDefinitionCommonConfig = `
 data "aws_sfn_state_machine_definition" "test" {
     comment   = "Foo Bar"
@@ -290,6 +307,99 @@ var testAccAWSSfnStateMachineDefinitionChoiceJSON = `{
         }
       ],
       "Default": "No"
+    }
+  }
+}`
+
+var testAccAWSSfnStateMachineDefinitionWaitConfig = `
+data "aws_sfn_state_machine_definition" "test" {
+    start_at  = "State1"
+
+    wait {
+        name         = "State1"
+        seconds_path = "$.seconds"
+
+        input_path  = "$"
+        output_path = "$"
+        next        = "State2"
+    }
+
+    wait {
+        name           = "State2"
+        timestamp_path = "$.timestamp"
+
+        input_path  = "$"
+        output_path = "$"
+        next        = "State3"
+    }
+
+    wait {
+        name      = "State3"
+        timestamp = "2016-08-18T17:33:00Z"
+
+        input_path  = "$"
+        output_path = "$"
+        next        = "State4"
+    }
+
+    wait {
+        name    = "State4"
+        seconds = 4
+
+        input_path  = "$"
+        output_path = "$"
+        next        = "State5"
+    }
+
+    wait {
+        name    = "State5"
+        seconds = 0
+
+        input_path  = "$"
+        output_path = "$"
+        end         = true
+    }
+}
+`
+
+var testAccAWSSfnStateMachineDefinitionWaitJSON = `{
+  "StartAt": "State1",
+  "Version": "1.0",
+  "States": {
+    "State1": {
+      "Type": "Wait",
+      "Next": "State2",
+      "InputPath": "$",
+      "OutputPath": "$",
+      "SecondsPath": "$.seconds"
+    },
+    "State2": {
+      "Type": "Wait",
+      "Next": "State3",
+      "InputPath": "$",
+      "OutputPath": "$",
+      "TimestampPath": "$.timestamp"
+    },
+    "State3": {
+      "Type": "Wait",
+      "Next": "State4",
+      "InputPath": "$",
+      "OutputPath": "$",
+      "Timestamp": "2016-08-18T17:33:00Z"
+    },
+    "State4": {
+      "Type": "Wait",
+      "Next": "State5",
+      "InputPath": "$",
+      "OutputPath": "$",
+      "Seconds": 4
+    },
+    "State5": {
+      "Type": "Wait",
+      "End": true,
+      "InputPath": "$",
+      "OutputPath": "$",
+      "Seconds": 0
     }
   }
 }`

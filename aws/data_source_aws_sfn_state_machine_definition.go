@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/hashcode"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/structure"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
 )
 
@@ -33,34 +34,11 @@ func dataSourceAwsSfnStateMachineDefinition() *schema.Resource {
 				Optional: true,
 				Default:  "1.0",
 			},
-			"pass": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Resource{
-					Schema: dataSourceAwsSfnStateMachineDefinitionPassState(),
-				},
-			},
-			"succeed": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Resource{
-					Schema: dataSourceAwsSfnStateMachineDefinitionSucceedState(),
-				},
-			},
-			"fail": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Resource{
-					Schema: dataSourceAwsSfnStateMachineDefinitionFailState(),
-				},
-			},
-			"choice": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Resource{
-					Schema: dataSourceAwsSfnStateMachineDefinitionChoiceState(),
-				},
-			},
+			"pass":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionPassState),
+			"succeed": dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionSucceedState),
+			"fail":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionFailState),
+			"choice":  dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionChoiceState),
+			"wait":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionWaitState),
 			"json": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -88,7 +66,7 @@ func dataSourceAwsSfnStateMachineDefinitionRead(d *schema.ResourceData, meta int
 	for _, typ := range dataSourceAwsSfnStateMachineDefinitionStateKeys() {
 		partialStates, err := dataSourceAwsSfnStateMachineDefinitionStateRead(d, typ)
 		if err != nil {
-			fmt.Errorf("error reading %s states: %s", typ, err)
+			return fmt.Errorf("error reading %s states: %s", typ, err)
 		}
 		for k, state := range partialStates {
 			states[k] = state
@@ -141,6 +119,7 @@ var dataSourceAwsSfnStateMachineDefinitionStateReadFns map[string]stateMachineRe
 	"succeed": dataSourceAwsSfnStateMachineDefinitionStateSucceedRead,
 	"fail":    dataSourceAwsSfnStateMachineDefinitionStateFailRead,
 	"choice":  dataSourceAwsSfnStateMachineDefinitionStateChoiceRead,
+	"wait":    dataSourceAwsSfnStateMachineDefinitionStateWaitRead,
 }
 
 func dataSourceAwsSfnStateMachineDefinitionStateKeys() []string {
@@ -204,8 +183,7 @@ func dataSourceAwsSfnStateMachineDefinitionStatePassRead(cfgState map[string]int
 	state.Type = "Pass"
 
 	if resultJson := cfgState["result"].(string); len(resultJson) > 0 {
-		result := make(map[string]interface{})
-		err := json.Unmarshal([]byte(resultJson), &result)
+		result, err := structure.ExpandJsonFromString(resultJson)
 		if err != nil {
 			return nil, fmt.Errorf("invalid result JSON: %s", err)
 		}
@@ -217,8 +195,7 @@ func dataSourceAwsSfnStateMachineDefinitionStatePassRead(cfgState map[string]int
 	}
 
 	if parametersJson := cfgState["parameters"].(string); len(parametersJson) > 0 {
-		parameters := make(map[string]interface{})
-		err := json.Unmarshal([]byte(parametersJson), &parameters)
+		parameters, err := structure.ExpandJsonFromString(parametersJson)
 		if err != nil {
 			return nil, fmt.Errorf("invalid parameters JSON: %s", err)
 		}
@@ -284,9 +261,7 @@ func dataSourceAwsSfnStateMachineDefinitionStateChoiceRead(cfgState map[string]i
 		choice := &SfnStateMachineChoiceRule{}
 		cfgChoice := choiceI.(map[string]interface{})
 
-		comparisonJson := cfgChoice["comparison"].(string)
-		comparison := make(map[string]interface{})
-		err := json.Unmarshal([]byte(comparisonJson), &comparison)
+		comparison, err := structure.ExpandJsonFromString(cfgChoice["comparison"].(string))
 		if err != nil {
 			// Shouldn't happen due to validation
 			return nil, fmt.Errorf("invalid comparison JSON: %s", err)
@@ -309,7 +284,43 @@ func dataSourceAwsSfnStateMachineDefinitionStateChoiceRead(cfgState map[string]i
 	return state, nil
 }
 
+func dataSourceAwsSfnStateMachineDefinitionStateWaitRead(cfgState map[string]interface{}) (interface{}, error) {
+	commonState, err := dataSourceAwsSfnStateMachineDefinitionStateCommonRead(cfgState)
+	if err != nil {
+		return nil, err
+	}
+
+	state := &SfnStateMachineWaitState{
+		SfnStateMachineState: *commonState.(*SfnStateMachineState),
+	}
+
+	state.Type = "Wait"
+
+	if cfgWait := cfgState["timestamp"].(string); len(cfgWait) > 0 {
+		state.Timestamp = &cfgWait
+	} else if cfgWait := cfgState["seconds_path"].(string); len(cfgWait) > 0 {
+		state.SecondsPath = &cfgWait
+	} else if cfgWait := cfgState["timestamp_path"].(string); len(cfgWait) > 0 {
+		state.TimestampPath = &cfgWait
+	} else {
+		cfgWait := cfgState["seconds"].(int)
+		state.Seconds = &cfgWait
+	}
+
+	return state, nil
+}
+
 // Schemas
+
+func dataSourceAwsSfnStateMachineDefinitionStateSchema(fn func() map[string]*schema.Schema) *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: fn(),
+		},
+	}
+}
 
 func dataSourceAwsSfnStateMachineDefinitionCommonState() map[string]*schema.Schema {
 	return map[string]*schema.Schema{
@@ -419,6 +430,35 @@ func dataSourceAwsSfnStateMachineDefinitionChoiceState() map[string]*schema.Sche
 			},
 		},
 		"default": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+	}
+
+	for k, v := range dataSourceAwsSfnStateMachineDefinitionCommonState() {
+		passSchema[k] = v
+	}
+
+	return passSchema
+}
+
+func dataSourceAwsSfnStateMachineDefinitionWaitState() map[string]*schema.Schema {
+	passSchema := map[string]*schema.Schema{
+		"seconds": {
+			Type:         schema.TypeInt,
+			Optional:     true,
+			ValidateFunc: validation.IntAtLeast(0),
+		},
+		"timestamp": {
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validation.IsRFC3339Time,
+		},
+		"seconds_path": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
+		"timestamp_path": {
 			Type:     schema.TypeString,
 			Optional: true,
 		},
