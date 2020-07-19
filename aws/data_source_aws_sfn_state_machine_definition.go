@@ -39,6 +39,7 @@ func dataSourceAwsSfnStateMachineDefinition() *schema.Resource {
 			"fail":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionFailState),
 			"choice":  dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionChoiceState),
 			"wait":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionWaitState),
+			"task":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionTaskState),
 			"json": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -112,14 +113,16 @@ func dataSourceAwsSfnStateMachineDefinitionStateRead(d *schema.ResourceData, typ
 }
 
 // State Read Functions
+
 type stateMachineReadFunc = func(cfgState map[string]interface{}) (interface{}, error)
 
-var dataSourceAwsSfnStateMachineDefinitionStateReadFns map[string]stateMachineReadFunc = map[string]stateMachineReadFunc{
+var dataSourceAwsSfnStateMachineDefinitionStateReadFns = map[string]stateMachineReadFunc{
 	"pass":    dataSourceAwsSfnStateMachineDefinitionStatePassRead,
 	"succeed": dataSourceAwsSfnStateMachineDefinitionStateSucceedRead,
 	"fail":    dataSourceAwsSfnStateMachineDefinitionStateFailRead,
 	"choice":  dataSourceAwsSfnStateMachineDefinitionStateChoiceRead,
 	"wait":    dataSourceAwsSfnStateMachineDefinitionStateWaitRead,
+	"task":    dataSourceAwsSfnStateMachineDefinitionStateTaskRead,
 }
 
 func dataSourceAwsSfnStateMachineDefinitionStateKeys() []string {
@@ -310,6 +313,99 @@ func dataSourceAwsSfnStateMachineDefinitionStateWaitRead(cfgState map[string]int
 	return state, nil
 }
 
+func dataSourceAwsSfnStateMachineDefinitionStateTaskRead(cfgState map[string]interface{}) (interface{}, error) {
+	commonState, err := dataSourceAwsSfnStateMachineDefinitionStateCommonRead(cfgState)
+	if err != nil {
+		return nil, err
+	}
+
+	state := &SfnStateMachineTaskState{
+		SfnStateMachineState: *commonState.(*SfnStateMachineState),
+	}
+
+	state.Type = "Task"
+
+	state.Resource = cfgState["resource"].(string)
+
+	if cfgParameters := cfgState["parameters"].(string); len(cfgParameters) > 0 {
+		parameters, err := structure.ExpandJsonFromString(cfgParameters)
+		if err != nil {
+			// Shouldn't happen due to validation
+			return nil, fmt.Errorf("invalid parameters JSON: %s", err)
+		}
+
+		state.Parameters = parameters
+	}
+
+	if cfgResultPath := cfgState["result_path"].(string); len(cfgResultPath) > 0 {
+		state.ResultPath = &cfgResultPath
+	}
+
+	if cfgRetriers, hasCfgRetriers := cfgState["retry"]; hasCfgRetriers {
+		state.Retry = dataSourceAwsSfnStateMachineDefinitionRetriersRead(cfgRetriers.([]interface{}))
+	}
+
+	if cfgCatchers, hasCfgCatchers := cfgState["catch"]; hasCfgCatchers {
+		state.Catch = dataSourceAwsSfnStateMachineDefinitionCatchersRead(cfgCatchers.([]interface{}))
+	}
+
+	if cfgTimeout, hasCfgTimeout := cfgState["timeout"]; hasCfgTimeout {
+		state.TimeoutSeconds = cfgTimeout.(int)
+	}
+
+	if cfgHeartbeat, hasCfgHeartbeat := cfgState["heartbeat"]; hasCfgHeartbeat {
+		state.HeartbeatSeconds = cfgHeartbeat.(int)
+	}
+
+	return state, nil
+}
+
+func dataSourceAwsSfnStateMachineDefinitionRetriersRead(in []interface{}) []*SfnStateMachineRetrier {
+	retriers := make([]*SfnStateMachineRetrier, len(in))
+
+	for i, retrierI := range in {
+		retrier := &SfnStateMachineRetrier{}
+		cfgRetrier := retrierI.(map[string]interface{})
+
+		retrier.ErrorEquals = sfnStateMachineDefinitionConfigStringList(cfgRetrier["errors"].(*schema.Set).List())
+
+		if cfgInterval, hasCfgInterval := cfgRetrier["interval"]; hasCfgInterval {
+			retrier.IntervalSeconds = cfgInterval.(int)
+		}
+
+		if cfgMaxAttempts, hasCfgMaxAttempts := cfgRetrier["max_attempts"]; hasCfgMaxAttempts {
+			retrier.MaxAttempts = cfgMaxAttempts.(int)
+		}
+
+		if cfgBackoff, hasCfgInterval := cfgRetrier["backoff"]; hasCfgInterval {
+			retrier.BackoffRate = cfgBackoff.(float64)
+		}
+
+		retriers[i] = retrier
+	}
+
+	return retriers
+}
+
+func dataSourceAwsSfnStateMachineDefinitionCatchersRead(in []interface{}) []*SfnStateMachineCatcher {
+	catchers := make([]*SfnStateMachineCatcher, len(in))
+
+	for i, catcherI := range in {
+		catcher := &SfnStateMachineCatcher{}
+		cfgCatcher := catcherI.(map[string]interface{})
+
+		catcher.ErrorEquals = sfnStateMachineDefinitionConfigStringList(cfgCatcher["errors"].(*schema.Set).List())
+
+		if cfgNext, hasCfgNext := cfgCatcher["next"]; hasCfgNext {
+			catcher.Next = cfgNext.(string)
+		}
+
+		catchers[i] = catcher
+	}
+
+	return catchers
+}
+
 // Schemas
 
 func dataSourceAwsSfnStateMachineDefinitionStateSchema(fn func() map[string]*schema.Schema) *schema.Schema {
@@ -443,7 +539,7 @@ func dataSourceAwsSfnStateMachineDefinitionChoiceState() map[string]*schema.Sche
 }
 
 func dataSourceAwsSfnStateMachineDefinitionWaitState() map[string]*schema.Schema {
-	passSchema := map[string]*schema.Schema{
+	waitSchema := map[string]*schema.Schema{
 		"seconds": {
 			Type:         schema.TypeInt,
 			Optional:     true,
@@ -465,8 +561,87 @@ func dataSourceAwsSfnStateMachineDefinitionWaitState() map[string]*schema.Schema
 	}
 
 	for k, v := range dataSourceAwsSfnStateMachineDefinitionCommonState() {
-		passSchema[k] = v
+		waitSchema[k] = v
 	}
 
-	return passSchema
+	return waitSchema
+}
+
+func dataSourceAwsSfnStateMachineDefinitionTaskState() map[string]*schema.Schema {
+	taskSchema := map[string]*schema.Schema{
+		"resource": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"parameters": {
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validation.StringIsJSON,
+		},
+		"result_path": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"retry": {
+			Type:     schema.TypeList,
+			Optional: true,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"errors": {
+						Type:     schema.TypeSet,
+						Required: true,
+						Elem:     &schema.Schema{Type: schema.TypeString},
+					},
+					"interval": {
+						Type:         schema.TypeInt,
+						Optional:     true,
+						ValidateFunc: validation.IntAtLeast(0),
+					},
+					"max_attempts": {
+						Type:         schema.TypeInt,
+						Optional:     true,
+						ValidateFunc: validation.IntAtLeast(0),
+					},
+					"backoff": {
+						Type:         schema.TypeFloat,
+						Optional:     true,
+						ValidateFunc: validation.FloatAtLeast(0),
+					},
+				},
+			},
+		},
+		"catch": {
+			Type:     schema.TypeList,
+			Optional: true,
+			Elem: &schema.Resource{
+				Schema: map[string]*schema.Schema{
+					"errors": {
+						Type:     schema.TypeSet,
+						Required: true,
+						Elem:     &schema.Schema{Type: schema.TypeString},
+					},
+					"next": {
+						Type:     schema.TypeString,
+						Required: true,
+					},
+				},
+			},
+		},
+		"timeout": {
+			Type:         schema.TypeInt,
+			Optional:     true,
+			ValidateFunc: validation.IntAtLeast(1),
+		},
+		"heartbeat": {
+			Type:         schema.TypeInt,
+			Optional:     true,
+			ValidateFunc: validation.IntAtLeast(1),
+		},
+	}
+
+	for k, v := range dataSourceAwsSfnStateMachineDefinitionCommonState() {
+		taskSchema[k] = v
+	}
+
+	return taskSchema
 }

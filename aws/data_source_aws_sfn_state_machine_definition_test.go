@@ -108,6 +108,23 @@ func TestAccAWSDataSourceSfnDefinition_wait(t *testing.T) {
 	})
 }
 
+func TestAccAWSDataSourceSfnDefinition_task(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSSfnStateMachineDefinitionTaskConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
+						testAccAWSSfnStateMachineDefinitionTaskJSON,
+					),
+				),
+			},
+		},
+	})
+}
+
 var testAccAWSSfnStateMachineDefinitionCommonConfig = `
 data "aws_sfn_state_machine_definition" "test" {
     comment   = "Foo Bar"
@@ -400,6 +417,126 @@ var testAccAWSSfnStateMachineDefinitionWaitJSON = `{
       "InputPath": "$",
       "OutputPath": "$",
       "Seconds": 0
+    }
+  }
+}`
+
+var testAccAWSSfnStateMachineDefinitionTaskConfig = `
+data "aws_sfn_state_machine_definition" "test" {
+    start_at  = "State1"
+
+    task {
+      name        = "State1"
+      input_path  = "$"
+      output_path = ""
+      result_path = "$"
+      next        = "State2"
+
+      resource   = "arn:aws:states:::batch:submitJob.sync"
+      parameters = <<-EOF
+      {
+        "JobDefinition": "preprocessing",
+        "JobName": "PreprocessingBatchJob",
+        "JobQueue": "SecondaryQueue",
+        "Parameters.$": "$.batchjob.parameters",
+        "RetryStrategy": {
+          "attempts": 5
+        }
+      }
+      EOF
+
+      retry {
+        errors       = ["States.Timeout", "ErrorA"]
+        interval     = 1
+        max_attempts = 2
+        backoff      = 2.0 
+      }
+
+      retry {
+        errors       = ["States.ALL"]
+        interval     = 5
+        max_attempts = 1
+        backoff      = 1.0 
+      }
+    }
+
+    task {
+      name        = "State2"
+      input_path  = "$"
+      output_path = "$"
+      result_path = ""
+      end         = true
+      
+      resource = "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld"
+
+      catch {
+        errors = ["States.ALL"]
+        next   = "Failed"
+      }
+
+      timeout   = 4
+      heartbeat = 1
+    }
+}
+`
+
+var testAccAWSSfnStateMachineDefinitionTaskJSON = `{
+  "StartAt": "State1",
+  "Version": "1.0",
+  "States": {
+    "State1": {
+      "Type": "Task",
+      "Next": "State2",
+      "InputPath": "$",
+      "OutputPath": null,
+      "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "Parameters": {
+        "JobDefinition": "preprocessing",
+        "JobName": "PreprocessingBatchJob",
+        "JobQueue": "SecondaryQueue",
+        "Parameters.$": "$.batchjob.parameters",
+        "RetryStrategy": {
+          "attempts": 5
+        }
+      },
+      "ResultPath": "$",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.Timeout",
+            "ErrorA"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        },
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 1,
+          "BackoffRate": 1
+        }
+      ]
+    },
+    "State2": {
+      "Type": "Task",
+      "End": true,
+      "InputPath": "$",
+      "OutputPath": "$",
+      "Resource": "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld",
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "Failed"
+        }
+      ],
+      "TimeoutSeconds": 4,
+      "HeartbeatSeconds": 1
     }
   }
 }`

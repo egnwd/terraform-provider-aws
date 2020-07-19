@@ -59,6 +59,29 @@ type SfnStateMachineWaitState struct {
 	Seconds       *int    `json:",omitempty"`
 }
 
+type SfnStateMachineTaskState struct {
+	SfnStateMachineState
+	Resource         string                    `json:""`
+	Parameters       map[string]interface{}    `json:",omitempty"`
+	ResultPath       *string                   `json:""`
+	Retry            []*SfnStateMachineRetrier `json:",omitempty"`
+	Catch            []*SfnStateMachineCatcher `json:",omitempty"`
+	TimeoutSeconds   int                       `json:",omitempty"`
+	HeartbeatSeconds int                       `json:",omitempty"`
+}
+
+type SfnStateMachineRetrier struct {
+	ErrorEquals     []string `json:""`
+	IntervalSeconds int      `json:""`
+	MaxAttempts     int      `json:""`
+	BackoffRate     float64  `json:""`
+}
+
+type SfnStateMachineCatcher struct {
+	ErrorEquals []string `json:""`
+	Next        string   `json:""`
+}
+
 func (cr SfnStateMachineChoiceRule) MarshalJSON() ([]byte, error) {
 	type SfnStateMachineChoiceRule_ SfnStateMachineChoiceRule // prevent recursion
 	b, err := json.Marshal(SfnStateMachineChoiceRule_(cr))
@@ -81,4 +104,12 @@ func (cr SfnStateMachineChoiceRule) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(m)
+}
+
+func sfnStateMachineDefinitionConfigStringList(lI []interface{}) []string {
+	ret := make([]string, len(lI))
+	for i, vI := range lI {
+		ret[i] = vI.(string)
+	}
+	return ret
 }
