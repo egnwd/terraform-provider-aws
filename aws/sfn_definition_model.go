@@ -5,10 +5,10 @@ import (
 )
 
 type SfnStateMachineDefinition struct {
+	Version string                 `json:",omitempty"`
 	Comment string                 `json:",omitempty"`
 	StartAt string                 `json:""`
 	Timeout int                    `json:"TimeoutSeconds,omitempty"`
-	Version string                 `json:",omitempty"`
 	States  map[string]interface{} `json:""`
 }
 
@@ -68,6 +68,19 @@ type SfnStateMachineTaskState struct {
 	Catch            []*SfnStateMachineCatcher `json:",omitempty"`
 	TimeoutSeconds   int                       `json:",omitempty"`
 	HeartbeatSeconds int                       `json:",omitempty"`
+}
+
+type SfnStateMachineParallelState struct {
+	SfnStateMachineState
+	Branches   []*SfnStateMachineStates  `json:""`
+	ResultPath *string                   `json:""`
+	Retry      []*SfnStateMachineRetrier `json:",omitempty"`
+	Catch      []*SfnStateMachineCatcher `json:",omitempty"`
+}
+
+type SfnStateMachineStates struct {
+	StartAt string                 `json:""`
+	States  map[string]interface{} `json:""`
 }
 
 type SfnStateMachineRetrier struct {

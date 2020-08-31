@@ -12,39 +12,34 @@ import (
 )
 
 func dataSourceAwsSfnStateMachineDefinition() *schema.Resource {
-	return &schema.Resource{
-		Read: dataSourceAwsSfnStateMachineDefinitionRead,
-
-		Schema: map[string]*schema.Schema{
-			"comment": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"start_at": {
-				Type:     schema.TypeString,
-				Required: true,
-			},
-			"timeout_seconds": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				ValidateFunc: validation.IntAtLeast(0),
-			},
-			"version": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "1.0",
-			},
-			"pass":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionPassState),
-			"succeed": dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionSucceedState),
-			"fail":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionFailState),
-			"choice":  dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionChoiceState),
-			"wait":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionWaitState),
-			"task":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionTaskState),
-			"json": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
+	topSchema := map[string]*schema.Schema{
+		"comment": {
+			Type:     schema.TypeString,
+			Optional: true,
 		},
+		"version": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "1.0",
+		},
+		"timeout_seconds": {
+			Type:         schema.TypeInt,
+			Optional:     true,
+			ValidateFunc: validation.IntAtLeast(0),
+		},
+		"json": {
+			Type:     schema.TypeString,
+			Computed: true,
+		},
+	}
+
+	for k, v := range dataSourceAwsSfnStateMachineDefinitionStates(0) {
+		topSchema[k] = v
+	}
+
+	return &schema.Resource{
+		Read:   dataSourceAwsSfnStateMachineDefinitionRead,
+		Schema: topSchema,
 	}
 }
 
@@ -65,7 +60,8 @@ func dataSourceAwsSfnStateMachineDefinitionRead(d *schema.ResourceData, meta int
 
 	states := make(map[string]interface{})
 	for _, typ := range dataSourceAwsSfnStateMachineDefinitionStateKeys() {
-		partialStates, err := dataSourceAwsSfnStateMachineDefinitionStateRead(d, typ)
+		cfgStates := d.Get(typ).([]interface{})
+		partialStates, err := dataSourceAwsSfnStateMachineDefinitionStateRead(cfgStates, typ)
 		if err != nil {
 			return fmt.Errorf("error reading %s states: %s", typ, err)
 		}
@@ -88,9 +84,8 @@ func dataSourceAwsSfnStateMachineDefinitionRead(d *schema.ResourceData, meta int
 	return nil
 }
 
-func dataSourceAwsSfnStateMachineDefinitionStateRead(d *schema.ResourceData, typ string) (map[string]interface{}, error) {
+func dataSourceAwsSfnStateMachineDefinitionStateRead(cfgStates []interface{}, typ string) (map[string]interface{}, error) {
 	states := make(map[string]interface{})
-	cfgStates := d.Get(typ).([]interface{})
 
 	fn, ok := dataSourceAwsSfnStateMachineDefinitionStateReadFns[typ]
 	if !ok {
@@ -116,13 +111,18 @@ func dataSourceAwsSfnStateMachineDefinitionStateRead(d *schema.ResourceData, typ
 
 type stateMachineReadFunc = func(cfgState map[string]interface{}) (interface{}, error)
 
-var dataSourceAwsSfnStateMachineDefinitionStateReadFns = map[string]stateMachineReadFunc{
-	"pass":    dataSourceAwsSfnStateMachineDefinitionStatePassRead,
-	"succeed": dataSourceAwsSfnStateMachineDefinitionStateSucceedRead,
-	"fail":    dataSourceAwsSfnStateMachineDefinitionStateFailRead,
-	"choice":  dataSourceAwsSfnStateMachineDefinitionStateChoiceRead,
-	"wait":    dataSourceAwsSfnStateMachineDefinitionStateWaitRead,
-	"task":    dataSourceAwsSfnStateMachineDefinitionStateTaskRead,
+var dataSourceAwsSfnStateMachineDefinitionStateReadFns map[string]stateMachineReadFunc
+
+func init() {
+	dataSourceAwsSfnStateMachineDefinitionStateReadFns = map[string]stateMachineReadFunc{
+		"pass":     dataSourceAwsSfnStateMachineDefinitionStatePassRead,
+		"succeed":  dataSourceAwsSfnStateMachineDefinitionStateSucceedRead,
+		"fail":     dataSourceAwsSfnStateMachineDefinitionStateFailRead,
+		"choice":   dataSourceAwsSfnStateMachineDefinitionStateChoiceRead,
+		"wait":     dataSourceAwsSfnStateMachineDefinitionStateWaitRead,
+		"task":     dataSourceAwsSfnStateMachineDefinitionStateTaskRead,
+		"parallel": dataSourceAwsSfnStateMachineDefinitionStateParallelRead,
+	}
 }
 
 func dataSourceAwsSfnStateMachineDefinitionStateKeys() []string {
@@ -132,6 +132,29 @@ func dataSourceAwsSfnStateMachineDefinitionStateKeys() []string {
 	}
 
 	return keys
+}
+
+func dataSourceAwsSfnStateMachineDefinitionSubStatesRead(cfgStates map[string]interface{}) (*SfnStateMachineStates, error) {
+	state := &SfnStateMachineStates{}
+
+	state.StartAt = cfgStates["start_at"].(string)
+
+	states := make(map[string]interface{})
+
+	for _, typ := range dataSourceAwsSfnStateMachineDefinitionStateKeys() {
+		cfgSubStates := cfgStates[typ].([]interface{})
+		partialStates, err := dataSourceAwsSfnStateMachineDefinitionStateRead(cfgSubStates, typ)
+		if err != nil {
+			return nil, fmt.Errorf("error reading %s states: %s", typ, err)
+		}
+		for k, state := range partialStates {
+			states[k] = state
+		}
+	}
+
+	state.States = states
+
+	return state, nil
 }
 
 func dataSourceAwsSfnStateMachineDefinitionStateCommonRead(cfgState map[string]interface{}) (interface{}, error) {
@@ -360,6 +383,47 @@ func dataSourceAwsSfnStateMachineDefinitionStateTaskRead(cfgState map[string]int
 	return state, nil
 }
 
+func dataSourceAwsSfnStateMachineDefinitionStateParallelRead(cfgState map[string]interface{}) (interface{}, error) {
+	commonState, err := dataSourceAwsSfnStateMachineDefinitionStateCommonRead(cfgState)
+	if err != nil {
+		return nil, err
+	}
+
+	state := &SfnStateMachineParallelState{
+		SfnStateMachineState: *commonState.(*SfnStateMachineState),
+	}
+
+	state.Type = "Parallel"
+
+	if cfgResultPath := cfgState["result_path"].(string); len(cfgResultPath) > 0 {
+		state.ResultPath = &cfgResultPath
+	}
+
+	if cfgRetriers, hasCfgRetriers := cfgState["retry"]; hasCfgRetriers {
+		state.Retry = dataSourceAwsSfnStateMachineDefinitionRetriersRead(cfgRetriers.([]interface{}))
+	}
+
+	if cfgCatchers, hasCfgCatchers := cfgState["catch"]; hasCfgCatchers {
+		state.Catch = dataSourceAwsSfnStateMachineDefinitionCatchersRead(cfgCatchers.([]interface{}))
+	}
+
+	cfgBranches := cfgState["branch"].([]interface{})
+	branches := make([]*SfnStateMachineStates, len(cfgBranches))
+
+	for i, branchI := range cfgBranches {
+		branch, err := dataSourceAwsSfnStateMachineDefinitionSubStatesRead(branchI.(map[string]interface{}))
+		if err != nil {
+			return nil, fmt.Errorf("error reading branch: %s\n", err)
+		}
+
+		branches[i] = branch
+	}
+
+	state.Branches = branches
+
+	return state, nil
+}
+
 func dataSourceAwsSfnStateMachineDefinitionRetriersRead(in []interface{}) []*SfnStateMachineRetrier {
 	retriers := make([]*SfnStateMachineRetrier, len(in))
 
@@ -416,6 +480,29 @@ func dataSourceAwsSfnStateMachineDefinitionStateSchema(fn func() map[string]*sch
 			Schema: fn(),
 		},
 	}
+}
+
+const maxStatesDepth = 3
+
+func dataSourceAwsSfnStateMachineDefinitionStates(d int) map[string]*schema.Schema {
+	s := map[string]*schema.Schema{
+		"start_at": {
+			Type:     schema.TypeString,
+			Required: true,
+		},
+		"pass":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionPassState),
+		"succeed": dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionSucceedState),
+		"fail":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionFailState),
+		"choice":  dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionChoiceState),
+		"wait":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionWaitState),
+		"task":    dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionTaskState),
+	}
+
+	if d < maxStatesDepth {
+		s["parallel"] = dataSourceAwsSfnStateMachineDefinitionStateSchema(dataSourceAwsSfnStateMachineDefinitionParallelState(d + 1))
+	}
+
+	return s
 }
 
 func dataSourceAwsSfnStateMachineDefinitionCommonState() map[string]*schema.Schema {
@@ -644,4 +731,73 @@ func dataSourceAwsSfnStateMachineDefinitionTaskState() map[string]*schema.Schema
 	}
 
 	return taskSchema
+}
+
+func dataSourceAwsSfnStateMachineDefinitionParallelState(d int) func() map[string]*schema.Schema {
+	return func() map[string]*schema.Schema {
+		taskSchema := map[string]*schema.Schema{
+			"branch": {
+				Type:     schema.TypeList,
+				Required: true,
+				Elem: &schema.Resource{
+					Schema: dataSourceAwsSfnStateMachineDefinitionStates(d),
+				},
+			},
+			"result_path": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
+			"retry": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"errors": {
+							Type:     schema.TypeSet,
+							Required: true,
+							Elem:     &schema.Schema{Type: schema.TypeString},
+						},
+						"interval": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							ValidateFunc: validation.IntAtLeast(0),
+						},
+						"max_attempts": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							ValidateFunc: validation.IntAtLeast(0),
+						},
+						"backoff": {
+							Type:         schema.TypeFloat,
+							Optional:     true,
+							ValidateFunc: validation.FloatAtLeast(0),
+						},
+					},
+				},
+			},
+			"catch": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"errors": {
+							Type:     schema.TypeSet,
+							Required: true,
+							Elem:     &schema.Schema{Type: schema.TypeString},
+						},
+						"next": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+					},
+				},
+			},
+		}
+
+		for k, v := range dataSourceAwsSfnStateMachineDefinitionCommonState() {
+			taskSchema[k] = v
+		}
+
+		return taskSchema
+	}
 }

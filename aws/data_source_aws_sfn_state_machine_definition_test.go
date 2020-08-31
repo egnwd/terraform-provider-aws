@@ -125,6 +125,23 @@ func TestAccAWSDataSourceSfnDefinition_task(t *testing.T) {
 	})
 }
 
+func TestAccAWSDataSourceSfnDefinition_parallel(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSSfnStateMachineDefinitionParallelConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
+						testAccAWSSfnStateMachineDefinitionParallelJSON,
+					),
+				),
+			},
+		},
+	})
+}
+
 var testAccAWSSfnStateMachineDefinitionCommonConfig = `
 data "aws_sfn_state_machine_definition" "test" {
     comment   = "Foo Bar"
@@ -537,6 +554,137 @@ var testAccAWSSfnStateMachineDefinitionTaskJSON = `{
       ],
       "TimeoutSeconds": 4,
       "HeartbeatSeconds": 1
+    }
+  }
+}`
+
+var testAccAWSSfnStateMachineDefinitionParallelConfig = `
+data "aws_sfn_state_machine_definition" "test" {
+    start_at  = "State1"
+
+    parallel {
+      name        = "State1"
+      input_path  = "$"
+      output_path = ""
+      result_path = "$"
+      end         = true
+
+      branch {
+        start_at  = "SubState1a"
+
+        pass {
+          name    = "SubState1a"
+  
+          input_path  = "$"
+          output_path = "$"
+          result_path = "$"
+          next        = "SubState1b"
+        }
+
+        task {
+          name        = "SubState1b"
+          input_path  = "$"
+          output_path = "$"
+          result_path = "$"
+          end         = true
+          
+          resource = "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld"
+        }
+      }
+
+      branch {
+        start_at  = "SubState2"
+
+        parallel {
+          name    = "SubState2"
+          input_path  = "$"
+          output_path = ""
+          result_path = "$"
+          end         = true
+
+          branch {
+            start_at = "SubState2a"
+
+            succeed {
+              name = "SubState2a"
+            }
+          }
+
+          branch {
+            start_at = "SubState2a"
+
+            fail {
+              name = "SubState2a"
+            }
+          }
+        }
+      }
+    }
+}
+`
+
+var testAccAWSSfnStateMachineDefinitionParallelJSON = `{
+  "Version": "1.0",
+  "StartAt": "State1",
+  "States": {
+    "State1": {
+      "Type": "Parallel",
+      "End": true,
+      "InputPath": "$",
+      "OutputPath": null,
+      "Branches": [
+        {
+          "StartAt": "SubState1a",
+          "States": {
+            "SubState1a": {
+              "Type": "Pass",
+              "Next": "SubState1b",
+              "InputPath": "$",
+              "OutputPath": "$",
+              "ResultPath": "$"
+            },
+            "SubState1b": {
+              "Type": "Task",
+              "End": true,
+              "InputPath": "$",
+              "OutputPath": "$",
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld",
+              "ResultPath": "$"
+            }
+          }
+        },
+        {
+          "StartAt": "SubState2",
+          "States": {
+            "SubState2": {
+              "Type": "Parallel",
+              "End": true,
+              "InputPath": "$",
+              "OutputPath": null,
+              "Branches": [
+                {
+                  "StartAt": "SubState2a",
+                  "States": {
+                    "SubState2a": {
+                      "Type": "Succeed"
+                    }
+                  }
+                },
+                {
+                  "StartAt": "SubState2a",
+                  "States": {
+                    "SubState2a": {
+                      "Type": "Fail"
+                    }
+                  }
+                }
+              ],
+              "ResultPath": "$"
+            }
+          }
+        }
+      ],
+      "ResultPath": "$"
     }
   }
 }`
