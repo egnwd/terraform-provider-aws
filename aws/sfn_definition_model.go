@@ -4,6 +4,11 @@ import (
 	"encoding/json"
 )
 
+type sfnStateMachinePath struct {
+	s      string
+	isNull bool
+}
+
 type SfnStateMachineDefinition struct {
 	Version string                 `json:",omitempty"`
 	Comment string                 `json:",omitempty"`
@@ -13,18 +18,18 @@ type SfnStateMachineDefinition struct {
 }
 
 type SfnStateMachineState struct {
-	Type       string  `json:""`
-	Next       string  `json:",omitempty"`
-	End        bool    `json:",omitempty"`
-	Comment    string  `json:",omitempty"`
-	InputPath  *string `json:""`
-	OutputPath *string `json:""`
+	Type       string               `json:""`
+	Next       string               `json:",omitempty"`
+	End        bool                 `json:",omitempty"`
+	Comment    string               `json:",omitempty"`
+	InputPath  *sfnStateMachinePath `json:",omitempty"`
+	OutputPath *sfnStateMachinePath `json:",omitempty"`
 }
 
 type SfnStateMachinePassState struct {
 	SfnStateMachineState
 	Result     map[string]interface{} `json:",omitempty"`
-	ResultPath *string                `json:""`
+	ResultPath *sfnStateMachinePath   `json:",omitempty"`
 	Parameters map[string]interface{} `json:",omitempty"`
 }
 
@@ -63,7 +68,7 @@ type SfnStateMachineTaskState struct {
 	SfnStateMachineState
 	Resource         string                    `json:""`
 	Parameters       map[string]interface{}    `json:",omitempty"`
-	ResultPath       *string                   `json:""`
+	ResultPath       *sfnStateMachinePath      `json:",omitempty"`
 	Retry            []*SfnStateMachineRetrier `json:",omitempty"`
 	Catch            []*SfnStateMachineCatcher `json:",omitempty"`
 	TimeoutSeconds   int                       `json:",omitempty"`
@@ -73,7 +78,7 @@ type SfnStateMachineTaskState struct {
 type SfnStateMachineParallelState struct {
 	SfnStateMachineState
 	Branches   []*SfnStateMachineStates  `json:""`
-	ResultPath *string                   `json:""`
+	ResultPath *sfnStateMachinePath      `json:",omitempty"`
 	Retry      []*SfnStateMachineRetrier `json:",omitempty"`
 	Catch      []*SfnStateMachineCatcher `json:",omitempty"`
 }
@@ -119,10 +124,32 @@ func (cr SfnStateMachineChoiceRule) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
+func (p sfnStateMachinePath) MarshalJSON() ([]byte, error) {
+	s := p.s
+
+	if p.isNull {
+		return []byte(`null`), nil
+	}
+
+	return json.Marshal(s)
+}
+
 func sfnStateMachineDefinitionConfigStringList(lI []interface{}) []string {
 	ret := make([]string, len(lI))
 	for i, vI := range lI {
 		ret[i] = vI.(string)
 	}
 	return ret
+}
+
+func sfnStateMachineDefinitionPath(s string) *sfnStateMachinePath {
+	if len(s) == 0 {
+		return &sfnStateMachinePath{isNull: true}
+	}
+
+	if s == "$" {
+		return nil
+	}
+
+	return &sfnStateMachinePath{s: s}
 }

@@ -185,13 +185,8 @@ func dataSourceAwsSfnStateMachineDefinitionStateCommonRead(cfgState map[string]i
 		state.Comment = cfgComment.(string)
 	}
 
-	if cfgInputPath := cfgState["input_path"].(string); len(cfgInputPath) > 0 {
-		state.InputPath = &cfgInputPath
-	}
-
-	if cfgOutputPath := cfgState["output_path"].(string); len(cfgOutputPath) > 0 {
-		state.OutputPath = &cfgOutputPath
-	}
+	state.InputPath = sfnStateMachineDefinitionPath(cfgState["input_path"].(string))
+	state.OutputPath = sfnStateMachineDefinitionPath(cfgState["output_path"].(string))
 
 	return state, nil
 }
@@ -216,9 +211,7 @@ func dataSourceAwsSfnStateMachineDefinitionStatePassRead(cfgState map[string]int
 		state.Result = result
 	}
 
-	if cfgResultPath := cfgState["result_path"].(string); len(cfgResultPath) > 0 {
-		state.ResultPath = &cfgResultPath
-	}
+	state.ResultPath = sfnStateMachineDefinitionPath(cfgState["result_path"].(string))
 
 	if parametersJson := cfgState["parameters"].(string); len(parametersJson) > 0 {
 		parameters, err := structure.ExpandJsonFromString(parametersJson)
@@ -272,13 +265,8 @@ func dataSourceAwsSfnStateMachineDefinitionStateChoiceRead(cfgState map[string]i
 		state.Comment = cfgComment.(string)
 	}
 
-	if cfgInputPath := cfgState["input_path"].(string); len(cfgInputPath) > 0 {
-		state.InputPath = &cfgInputPath
-	}
-
-	if cfgOutputPath := cfgState["output_path"].(string); len(cfgOutputPath) > 0 {
-		state.OutputPath = &cfgOutputPath
-	}
+	state.InputPath = sfnStateMachineDefinitionPath(cfgState["input_path"].(string))
+	state.OutputPath = sfnStateMachineDefinitionPath(cfgState["output_path"].(string))
 
 	cfgChoices := cfgState["option"].([]interface{})
 	choices := make([]*SfnStateMachineChoiceRule, len(cfgChoices))
@@ -360,9 +348,7 @@ func dataSourceAwsSfnStateMachineDefinitionStateTaskRead(cfgState map[string]int
 		state.Parameters = parameters
 	}
 
-	if cfgResultPath := cfgState["result_path"].(string); len(cfgResultPath) > 0 {
-		state.ResultPath = &cfgResultPath
-	}
+	state.ResultPath = sfnStateMachineDefinitionPath(cfgState["result_path"].(string))
 
 	if cfgRetriers, hasCfgRetriers := cfgState["retry"]; hasCfgRetriers {
 		state.Retry = dataSourceAwsSfnStateMachineDefinitionRetriersRead(cfgRetriers.([]interface{}))
@@ -395,9 +381,7 @@ func dataSourceAwsSfnStateMachineDefinitionStateParallelRead(cfgState map[string
 
 	state.Type = "Parallel"
 
-	if cfgResultPath := cfgState["result_path"].(string); len(cfgResultPath) > 0 {
-		state.ResultPath = &cfgResultPath
-	}
+	state.ResultPath = sfnStateMachineDefinitionPath(cfgState["result_path"].(string))
 
 	if cfgRetriers, hasCfgRetriers := cfgState["retry"]; hasCfgRetriers {
 		state.Retry = dataSourceAwsSfnStateMachineDefinitionRetriersRead(cfgRetriers.([]interface{}))

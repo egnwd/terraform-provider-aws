@@ -169,24 +169,20 @@ data "aws_sfn_state_machine_definition" "test" {
 `
 
 var testAccAWSSfnStateMachineDefinitionCommonJSON = `{
+  "Version": "1.0",
   "Comment": "Foo Bar",
   "StartAt": "State1",
-  "Version": "1.0",
   "States": {
     "State1": {
       "Type": "Pass",
       "Next": "State2",
       "Comment": "Doesn't do anything",
-      "InputPath": "$",
-      "OutputPath": null,
-      "ResultPath": "$"
+      "OutputPath": null
     },
     "State2": {
       "Type": "Pass",
       "End": true,
-      "InputPath": "$.data",
-      "OutputPath": "$",
-      "ResultPath": "$"
+      "InputPath": "$.data"
     }
   }
 }`
@@ -217,14 +213,13 @@ data "aws_sfn_state_machine_definition" "test" {
 `
 
 var testAccAWSSfnStateMachineDefinitionPassJSON = `{
+  "Version": "1.0",
   "Comment": "Foo Bar",
   "StartAt": "State1",
-  "Version": "1.0",
   "States": {
     "State1": {
       "Type": "Pass",
       "End": true,
-      "InputPath": "$",
       "OutputPath": null,
       "Result": {
         "a": 123,
@@ -234,8 +229,7 @@ var testAccAWSSfnStateMachineDefinitionPassJSON = `{
             false
           ]
         }
-      },
-      "ResultPath": "$"
+      }
     }
   }
 }`
@@ -252,8 +246,8 @@ data "aws_sfn_state_machine_definition" "test" {
 `
 
 var testAccAWSSfnStateMachineDefinitionSucceedJSON = `{
-  "StartAt": "State1",
   "Version": "1.0",
+  "StartAt": "State1",
   "States": {
     "State1": {
       "Type": "Succeed",
@@ -275,8 +269,8 @@ data "aws_sfn_state_machine_definition" "test" {
 `
 
 var testAccAWSSfnStateMachineDefinitionFailJSON = `{
-  "StartAt": "State1",
   "Version": "1.0",
+  "StartAt": "State1",
   "States": {
     "State1": {
       "Type": "Fail",
@@ -321,13 +315,11 @@ data "aws_sfn_state_machine_definition" "test" {
 `
 
 var testAccAWSSfnStateMachineDefinitionChoiceJSON = `{
-  "StartAt": "Should Fail?",
   "Version": "1.0",
+  "StartAt": "Should Fail?",
   "States": {
     "Should Fail?": {
       "Type": "Choice",
-      "InputPath": "$",
-      "OutputPath": "$",
       "Choices": [
         {
           "Next": "Yes",
@@ -397,42 +389,32 @@ data "aws_sfn_state_machine_definition" "test" {
 `
 
 var testAccAWSSfnStateMachineDefinitionWaitJSON = `{
-  "StartAt": "State1",
   "Version": "1.0",
+  "StartAt": "State1",
   "States": {
     "State1": {
       "Type": "Wait",
       "Next": "State2",
-      "InputPath": "$",
-      "OutputPath": "$",
       "SecondsPath": "$.seconds"
     },
     "State2": {
       "Type": "Wait",
       "Next": "State3",
-      "InputPath": "$",
-      "OutputPath": "$",
       "TimestampPath": "$.timestamp"
     },
     "State3": {
       "Type": "Wait",
       "Next": "State4",
-      "InputPath": "$",
-      "OutputPath": "$",
       "Timestamp": "2016-08-18T17:33:00Z"
     },
     "State4": {
       "Type": "Wait",
       "Next": "State5",
-      "InputPath": "$",
-      "OutputPath": "$",
       "Seconds": 4
     },
     "State5": {
       "Type": "Wait",
       "End": true,
-      "InputPath": "$",
-      "OutputPath": "$",
       "Seconds": 0
     }
   }
@@ -498,13 +480,12 @@ data "aws_sfn_state_machine_definition" "test" {
 `
 
 var testAccAWSSfnStateMachineDefinitionTaskJSON = `{
-  "StartAt": "State1",
   "Version": "1.0",
+  "StartAt": "State1",
   "States": {
     "State1": {
       "Type": "Task",
       "Next": "State2",
-      "InputPath": "$",
       "OutputPath": null,
       "Resource": "arn:aws:states:::batch:submitJob.sync",
       "Parameters": {
@@ -516,7 +497,6 @@ var testAccAWSSfnStateMachineDefinitionTaskJSON = `{
           "attempts": 5
         }
       },
-      "ResultPath": "$",
       "Retry": [
         {
           "ErrorEquals": [
@@ -540,8 +520,6 @@ var testAccAWSSfnStateMachineDefinitionTaskJSON = `{
     "State2": {
       "Type": "Task",
       "End": true,
-      "InputPath": "$",
-      "OutputPath": "$",
       "Resource": "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld",
       "ResultPath": null,
       "Catch": [
@@ -630,7 +608,6 @@ var testAccAWSSfnStateMachineDefinitionParallelJSON = `{
     "State1": {
       "Type": "Parallel",
       "End": true,
-      "InputPath": "$",
       "OutputPath": null,
       "Branches": [
         {
@@ -638,18 +615,12 @@ var testAccAWSSfnStateMachineDefinitionParallelJSON = `{
           "States": {
             "SubState1a": {
               "Type": "Pass",
-              "Next": "SubState1b",
-              "InputPath": "$",
-              "OutputPath": "$",
-              "ResultPath": "$"
+              "Next": "SubState1b"
             },
             "SubState1b": {
               "Type": "Task",
               "End": true,
-              "InputPath": "$",
-              "OutputPath": "$",
-              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld",
-              "ResultPath": "$"
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld"
             }
           }
         },
@@ -659,7 +630,6 @@ var testAccAWSSfnStateMachineDefinitionParallelJSON = `{
             "SubState2": {
               "Type": "Parallel",
               "End": true,
-              "InputPath": "$",
               "OutputPath": null,
               "Branches": [
                 {
@@ -678,13 +648,11 @@ var testAccAWSSfnStateMachineDefinitionParallelJSON = `{
                     }
                   }
                 }
-              ],
-              "ResultPath": "$"
+              ]
             }
           }
         }
-      ],
-      "ResultPath": "$"
+      ]
     }
   }
 }`
