@@ -509,11 +509,13 @@ func dataSourceAwsSfnStateMachineDefinitionCommonState() map[string]*schema.Sche
 		},
 		"input_path": {
 			Type:     schema.TypeString,
-			Required: true,
+			Optional: true,
+			Default:  "$",
 		},
 		"output_path": {
 			Type:     schema.TypeString,
-			Required: true,
+			Optional: true,
+			Default:  "$",
 		},
 	}
 }
@@ -527,7 +529,8 @@ func dataSourceAwsSfnStateMachineDefinitionPassState() map[string]*schema.Schema
 		},
 		"result_path": {
 			Type:     schema.TypeString,
-			Required: true,
+			Optional: true,
+			Default:  "$",
 		},
 		"parameters": {
 			Type:         schema.TypeString,
@@ -651,7 +654,8 @@ func dataSourceAwsSfnStateMachineDefinitionTaskState() map[string]*schema.Schema
 		},
 		"result_path": {
 			Type:     schema.TypeString,
-			Required: true,
+			Optional: true,
+			Default:  "$",
 		},
 		"retry": {
 			Type:     schema.TypeList,
@@ -729,7 +733,8 @@ func dataSourceAwsSfnStateMachineDefinitionParallelState(d int) func() map[strin
 			},
 			"result_path": {
 				Type:     schema.TypeString,
-				Required: true,
+				Optional: true,
+				Default:  "$",
 			},
 			"retry": {
 				Type:     schema.TypeList,

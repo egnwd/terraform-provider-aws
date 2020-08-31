@@ -151,9 +151,7 @@ data "aws_sfn_state_machine_definition" "test" {
         name    = "State1"
         comment = "Doesn't do anything"
 
-        input_path  = "$"
         output_path = ""
-        result_path = "$"
         next        = "State2"
     }
 
@@ -161,8 +159,6 @@ data "aws_sfn_state_machine_definition" "test" {
         name    = "State2"
 
         input_path  = "$.data"
-        output_path = "$"
-        result_path = "$"
         end         = true
     }
 }
@@ -195,11 +191,9 @@ data "aws_sfn_state_machine_definition" "test" {
     pass {
         name    = "State1"
 
-        input_path  = "$"
         output_path = ""
         end         = true
 
-        result_path = "$"
         result      = <<-EOF
         {
           "a": 123,
@@ -288,9 +282,6 @@ data "aws_sfn_state_machine_definition" "test" {
         name    = "Should Fail?"
         default = "No"
 
-        input_path  = "$"
-        output_path = "$"
-
         option {
             next       = "Yes"
             comparison = <<-EOF
@@ -345,8 +336,6 @@ data "aws_sfn_state_machine_definition" "test" {
         name         = "State1"
         seconds_path = "$.seconds"
 
-        input_path  = "$"
-        output_path = "$"
         next        = "State2"
     }
 
@@ -354,8 +343,6 @@ data "aws_sfn_state_machine_definition" "test" {
         name           = "State2"
         timestamp_path = "$.timestamp"
 
-        input_path  = "$"
-        output_path = "$"
         next        = "State3"
     }
 
@@ -363,8 +350,6 @@ data "aws_sfn_state_machine_definition" "test" {
         name      = "State3"
         timestamp = "2016-08-18T17:33:00Z"
 
-        input_path  = "$"
-        output_path = "$"
         next        = "State4"
     }
 
@@ -372,8 +357,6 @@ data "aws_sfn_state_machine_definition" "test" {
         name    = "State4"
         seconds = 4
 
-        input_path  = "$"
-        output_path = "$"
         next        = "State5"
     }
 
@@ -381,8 +364,6 @@ data "aws_sfn_state_machine_definition" "test" {
         name    = "State5"
         seconds = 0
 
-        input_path  = "$"
-        output_path = "$"
         end         = true
     }
 }
@@ -426,9 +407,7 @@ data "aws_sfn_state_machine_definition" "test" {
 
     task {
       name        = "State1"
-      input_path  = "$"
       output_path = ""
-      result_path = "$"
       next        = "State2"
 
       resource   = "arn:aws:states:::batch:submitJob.sync"
@@ -461,8 +440,6 @@ data "aws_sfn_state_machine_definition" "test" {
 
     task {
       name        = "State2"
-      input_path  = "$"
-      output_path = "$"
       result_path = ""
       end         = true
       
@@ -542,9 +519,7 @@ data "aws_sfn_state_machine_definition" "test" {
 
     parallel {
       name        = "State1"
-      input_path  = "$"
       output_path = ""
-      result_path = "$"
       end         = true
 
       branch {
@@ -553,17 +528,11 @@ data "aws_sfn_state_machine_definition" "test" {
         pass {
           name    = "SubState1a"
   
-          input_path  = "$"
-          output_path = "$"
-          result_path = "$"
           next        = "SubState1b"
         }
 
         task {
           name        = "SubState1b"
-          input_path  = "$"
-          output_path = "$"
-          result_path = "$"
           end         = true
           
           resource = "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld"
@@ -575,9 +544,7 @@ data "aws_sfn_state_machine_definition" "test" {
 
         parallel {
           name    = "SubState2"
-          input_path  = "$"
           output_path = ""
-          result_path = "$"
           end         = true
 
           branch {
