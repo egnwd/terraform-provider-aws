@@ -69,6 +69,7 @@ type SfnStateMachineTaskState struct {
 	Resource             string                    `json:""`
 	Parameters           map[string]interface{}    `json:",omitempty"`
 	ResultPath           *sfnStateMachinePath      `json:",omitempty"`
+	ResultSelector       *sfnStateMachinePath      `json:",omitempty"`
 	Retry                []*SfnStateMachineRetrier `json:",omitempty"`
 	Catch                []*SfnStateMachineCatcher `json:",omitempty"`
 	TimeoutSeconds       int                       `json:",omitempty"`
@@ -79,10 +80,11 @@ type SfnStateMachineTaskState struct {
 
 type SfnStateMachineParallelState struct {
 	SfnStateMachineState
-	Branches   []*SfnStateMachineStates  `json:""`
-	ResultPath *sfnStateMachinePath      `json:",omitempty"`
-	Retry      []*SfnStateMachineRetrier `json:",omitempty"`
-	Catch      []*SfnStateMachineCatcher `json:",omitempty"`
+	Branches       []*SfnStateMachineStates  `json:""`
+	ResultPath     *sfnStateMachinePath      `json:",omitempty"`
+	ResultSelector *sfnStateMachinePath      `json:",omitempty"`
+	Retry          []*SfnStateMachineRetrier `json:",omitempty"`
+	Catch          []*SfnStateMachineCatcher `json:",omitempty"`
 }
 
 type SfnStateMachineStates struct {

@@ -159,6 +159,23 @@ func TestAccAWSDataSourceSfnDefinition_parallel(t *testing.T) {
 	})
 }
 
+func TestAccAWSDataSourceSfnDefinition_resultSelector(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSSfnStateMachineDefinitionResultSelectorConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
+						testAccAWSSfnStateMachineDefinitionResultSelectorJSON,
+					),
+				),
+			},
+		},
+	})
+}
+
 var testAccAWSSfnStateMachineDefinitionCommonConfig = `
 data "aws_sfn_state_machine_definition" "test" {
     comment   = "Foo Bar"
@@ -669,6 +686,59 @@ var testAccAWSSfnStateMachineDefinitionParallelJSON = `{
           }
         }
       ]
+    }
+  }
+}`
+
+var testAccAWSSfnStateMachineDefinitionResultSelectorConfig = `
+data "aws_sfn_state_machine_definition" "test" {
+    start_at  = "State1"
+
+    parallel {
+      name        = "State1"
+      output_path = ""
+      end         = true
+
+      branch {
+        start_at  = "SubState1a"
+
+        task {
+          name        = "SubState1a"
+          end         = true
+          
+          resource = "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld"
+
+          result_selector = "$.data.value"
+        }
+      }
+
+      result_selector = "$.thing"
+    }
+}
+`
+
+var testAccAWSSfnStateMachineDefinitionResultSelectorJSON = `{
+  "Version": "1.0",
+  "StartAt": "State1",
+  "States": {
+    "State1": {
+      "Type": "Parallel",
+      "End": true,
+      "OutputPath": null,
+      "Branches": [
+        {
+          "StartAt": "SubState1a",
+          "States": {
+            "SubState1a": {
+              "Type": "Task",
+              "End": true,
+              "Resource": "arn:aws:lambda:us-east-1:123456789012:function:HelloWorld",
+              "ResultSelector": "$.data.value"
+            }
+          }
+        }
+      ],
+      "ResultSelector": "$.thing"
     }
   }
 }`

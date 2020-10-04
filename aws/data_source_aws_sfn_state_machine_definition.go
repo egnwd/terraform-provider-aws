@@ -350,6 +350,7 @@ func dataSourceAwsSfnStateMachineDefinitionStateTaskRead(cfgState map[string]int
 	}
 
 	state.ResultPath = sfnStateMachineDefinitionPath(cfgState["result_path"].(string))
+	state.ResultSelector = sfnStateMachineDefinitionPath(cfgState["result_selector"].(string))
 
 	if cfgRetriers, hasCfgRetriers := cfgState["retry"]; hasCfgRetriers {
 		state.Retry = dataSourceAwsSfnStateMachineDefinitionRetriersRead(cfgRetriers.([]interface{}))
@@ -409,6 +410,7 @@ func dataSourceAwsSfnStateMachineDefinitionStateParallelRead(cfgState map[string
 	state.Type = "Parallel"
 
 	state.ResultPath = sfnStateMachineDefinitionPath(cfgState["result_path"].(string))
+	state.ResultSelector = sfnStateMachineDefinitionPath(cfgState["result_selector"].(string))
 
 	if cfgRetriers, hasCfgRetriers := cfgState["retry"]; hasCfgRetriers {
 		state.Retry = dataSourceAwsSfnStateMachineDefinitionRetriersRead(cfgRetriers.([]interface{}))
@@ -684,6 +686,11 @@ func dataSourceAwsSfnStateMachineDefinitionTaskState() map[string]*schema.Schema
 			Optional: true,
 			Default:  "$",
 		},
+		"result_selector": {
+			Type:     schema.TypeString,
+			Optional: true,
+			Default:  "$",
+		},
 		"retry": {
 			Type:     schema.TypeList,
 			Optional: true,
@@ -767,6 +774,11 @@ func dataSourceAwsSfnStateMachineDefinitionParallelState(d int) func() map[strin
 				},
 			},
 			"result_path": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "$",
+			},
+			"result_selector": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "$",
