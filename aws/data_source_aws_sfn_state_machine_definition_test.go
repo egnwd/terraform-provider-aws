@@ -125,6 +125,23 @@ func TestAccAWSDataSourceSfnDefinition_task(t *testing.T) {
 	})
 }
 
+func TestAccAWSDataSourceSfnDefinition_taskPath(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:  func() { testAccPreCheck(t) },
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAWSSfnStateMachineDefinitionTaskPathConfig,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.aws_sfn_state_machine_definition.test", "json",
+						testAccAWSSfnStateMachineDefinitionTaskPathJSON,
+					),
+				),
+			},
+		},
+	})
+}
+
 func TestAccAWSDataSourceSfnDefinition_parallel(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
@@ -509,6 +526,38 @@ var testAccAWSSfnStateMachineDefinitionTaskJSON = `{
       ],
       "TimeoutSeconds": 4,
       "HeartbeatSeconds": 1
+    }
+  }
+}`
+
+var testAccAWSSfnStateMachineDefinitionTaskPathConfig = `
+data "aws_sfn_state_machine_definition" "test" {
+    start_at  = "State1"
+
+    task {
+      name        = "State1"
+      output_path = ""
+      end        = true
+
+      resource   = "arn:aws:states:::batch:submitJob.sync"
+
+      timeout_path   = "$.timeout"
+      heartbeat_path = "$.heartbeat"
+    }
+}
+`
+
+var testAccAWSSfnStateMachineDefinitionTaskPathJSON = `{
+  "Version": "1.0",
+  "StartAt": "State1",
+  "States": {
+    "State1": {
+      "Type": "Task",
+      "End": true,
+      "OutputPath": null,
+      "Resource": "arn:aws:states:::batch:submitJob.sync",
+      "TimeoutSecondsPath": "$.timeout",
+      "HeartbeatSecondsPath": "$.heartbeat"
     }
   }
 }`

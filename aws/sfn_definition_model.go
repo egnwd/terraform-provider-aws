@@ -66,13 +66,15 @@ type SfnStateMachineWaitState struct {
 
 type SfnStateMachineTaskState struct {
 	SfnStateMachineState
-	Resource         string                    `json:""`
-	Parameters       map[string]interface{}    `json:",omitempty"`
-	ResultPath       *sfnStateMachinePath      `json:",omitempty"`
-	Retry            []*SfnStateMachineRetrier `json:",omitempty"`
-	Catch            []*SfnStateMachineCatcher `json:",omitempty"`
-	TimeoutSeconds   int                       `json:",omitempty"`
-	HeartbeatSeconds int                       `json:",omitempty"`
+	Resource             string                    `json:""`
+	Parameters           map[string]interface{}    `json:",omitempty"`
+	ResultPath           *sfnStateMachinePath      `json:",omitempty"`
+	Retry                []*SfnStateMachineRetrier `json:",omitempty"`
+	Catch                []*SfnStateMachineCatcher `json:",omitempty"`
+	TimeoutSeconds       int                       `json:",omitempty"`
+	HeartbeatSeconds     int                       `json:",omitempty"`
+	TimeoutSecondsPath   string                    `json:",omitempty"`
+	HeartbeatSecondsPath string                    `json:",omitempty"`
 }
 
 type SfnStateMachineParallelState struct {

@@ -2,6 +2,7 @@ package aws
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -89,7 +90,7 @@ func dataSourceAwsSfnStateMachineDefinitionStateRead(cfgStates []interface{}, ty
 
 	fn, ok := dataSourceAwsSfnStateMachineDefinitionStateReadFns[typ]
 	if !ok {
-		return states, fmt.Errorf("error reading type %s", typ)
+		return states, fmt.Errorf("could not read type %s", typ)
 	}
 
 	for _, stateI := range cfgStates {
@@ -98,7 +99,7 @@ func dataSourceAwsSfnStateMachineDefinitionStateRead(cfgStates []interface{}, ty
 
 		state, err := fn(cfgState)
 		if err != nil {
-			return states, fmt.Errorf("error reading state (%s): %s", n, err)
+			return states, fmt.Errorf("(%s): %s", n, err)
 		}
 
 		states[n] = state
@@ -358,12 +359,38 @@ func dataSourceAwsSfnStateMachineDefinitionStateTaskRead(cfgState map[string]int
 		state.Catch = dataSourceAwsSfnStateMachineDefinitionCatchersRead(cfgCatchers.([]interface{}))
 	}
 
-	if cfgTimeout, hasCfgTimeout := cfgState["timeout"]; hasCfgTimeout {
+	cfgTimeout := cfgState["timeout"]
+	cfgTimeoutPath := cfgState["timeout_path"]
+	hasCfgTimeout := cfgTimeout != 0
+	hasCfgTimeoutPath := cfgTimeoutPath != ""
+
+	if hasCfgTimeout && hasCfgTimeoutPath {
+		return nil, fmt.Errorf("both timeout and timeout_path are set (%s, %s)", cfgTimeout, cfgTimeoutPath)
+	}
+
+	if hasCfgTimeout {
 		state.TimeoutSeconds = cfgTimeout.(int)
 	}
 
-	if cfgHeartbeat, hasCfgHeartbeat := cfgState["heartbeat"]; hasCfgHeartbeat {
+	if hasCfgTimeoutPath {
+		state.TimeoutSecondsPath = cfgTimeoutPath.(string)
+	}
+
+	cfgHeartbeat := cfgState["heartbeat"]
+	cfgHeartbeatPath := cfgState["heartbeat_path"]
+	hasCfgHeartbeat := cfgHeartbeat != 0
+	hasCfgHeartbeatPath := cfgHeartbeatPath != ""
+
+	if hasCfgHeartbeat && hasCfgHeartbeatPath {
+		return nil, errors.New("both heartbeat and heartbeat_path are set")
+	}
+
+	if hasCfgHeartbeat {
 		state.HeartbeatSeconds = cfgHeartbeat.(int)
+	}
+
+	if hasCfgHeartbeatPath {
+		state.HeartbeatSecondsPath = cfgHeartbeatPath.(string)
 	}
 
 	return state, nil
@@ -707,10 +734,18 @@ func dataSourceAwsSfnStateMachineDefinitionTaskState() map[string]*schema.Schema
 			Optional:     true,
 			ValidateFunc: validation.IntAtLeast(1),
 		},
+		"timeout_path": {
+			Type:     schema.TypeString,
+			Optional: true,
+		},
 		"heartbeat": {
 			Type:         schema.TypeInt,
 			Optional:     true,
 			ValidateFunc: validation.IntAtLeast(1),
+		},
+		"heartbeat_path": {
+			Type:     schema.TypeString,
+			Optional: true,
 		},
 	}
 
