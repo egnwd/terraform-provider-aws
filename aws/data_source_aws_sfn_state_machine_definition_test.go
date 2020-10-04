@@ -176,6 +176,53 @@ func TestAccAWSDataSourceSfnDefinition_resultSelector(t *testing.T) {
 	})
 }
 
+func TestAccAWSDataSourceSfnDefinition_validatePaths(t *testing.T) {
+	type testCases struct {
+		Value    string
+		ErrCount int
+	}
+
+	invalidCases := []testCases{
+		{
+			Value:    `path`,
+			ErrCount: 2,
+		},
+		{
+			Value:    `['store']`,
+			ErrCount: 2,
+		},
+	}
+
+	for _, tc := range invalidCases {
+		_, errors := validateStateMachineDefinitionPath()(tc.Value, "path")
+		if len(errors) != tc.ErrCount {
+			t.Fatalf("Expected %q to trigger a validation error.", tc.Value)
+		}
+	}
+
+	validCases := []testCases{
+		{
+			Value:    ``,
+			ErrCount: 0,
+		},
+		{
+			Value:    `$.store.book`,
+			ErrCount: 0,
+		},
+		{
+			Value:    `$.foo\@bar.baz\[\[.\?pretty`,
+			ErrCount: 0,
+		},
+	}
+
+	for _, tc := range validCases {
+		_, errors := validateStateMachineDefinitionPath()(tc.Value, "path")
+		if len(errors) != tc.ErrCount {
+			t.Fatalf("Expected %q not to trigger a validation error.", tc.Value)
+		}
+	}
+}
+
 var testAccAWSSfnStateMachineDefinitionCommonConfig = `
 data "aws_sfn_state_machine_definition" "test" {
     comment   = "Foo Bar"

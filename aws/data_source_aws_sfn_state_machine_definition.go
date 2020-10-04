@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/hashcode"
@@ -495,7 +496,14 @@ func dataSourceAwsSfnStateMachineDefinitionStateSchema(fn func() map[string]*sch
 	}
 }
 
-const maxStatesDepth = 3
+const maxStatesDepth = 5
+
+func validateStateMachineDefinitionPath() schema.SchemaValidateFunc {
+	re := regexp.MustCompile(`^\$.*`)
+	isEmpty := validation.StringLenBetween(0, 0)
+	orIsValidPath := validation.StringMatch(re, "JSON Path must begin with '$'")
+	return validation.Any(isEmpty, orIsValidPath)
+}
 
 func dataSourceAwsSfnStateMachineDefinitionStates(d int) map[string]*schema.Schema {
 	s := map[string]*schema.Schema{
@@ -537,14 +545,16 @@ func dataSourceAwsSfnStateMachineDefinitionCommonState() map[string]*schema.Sche
 			Optional: true,
 		},
 		"input_path": {
-			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "$",
+			Type:         schema.TypeString,
+			Optional:     true,
+			Default:      "$",
+			ValidateFunc: validateStateMachineDefinitionPath(),
 		},
 		"output_path": {
-			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "$",
+			Type:         schema.TypeString,
+			Optional:     true,
+			Default:      "$",
+			ValidateFunc: validateStateMachineDefinitionPath(),
 		},
 	}
 }
@@ -557,9 +567,10 @@ func dataSourceAwsSfnStateMachineDefinitionPassState() map[string]*schema.Schema
 			ValidateFunc: validation.StringIsJSON,
 		},
 		"result_path": {
-			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "$",
+			Type:         schema.TypeString,
+			Optional:     true,
+			Default:      "$",
+			ValidateFunc: validateStateMachineDefinitionPath(),
 		},
 		"parameters": {
 			Type:         schema.TypeString,
@@ -654,12 +665,14 @@ func dataSourceAwsSfnStateMachineDefinitionWaitState() map[string]*schema.Schema
 			ValidateFunc: validation.IsRFC3339Time,
 		},
 		"seconds_path": {
-			Type:     schema.TypeString,
-			Optional: true,
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validateStateMachineDefinitionPath(),
 		},
 		"timestamp_path": {
-			Type:     schema.TypeString,
-			Optional: true,
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validateStateMachineDefinitionPath(),
 		},
 	}
 
@@ -682,14 +695,16 @@ func dataSourceAwsSfnStateMachineDefinitionTaskState() map[string]*schema.Schema
 			ValidateFunc: validation.StringIsJSON,
 		},
 		"result_path": {
-			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "$",
+			Type:         schema.TypeString,
+			Optional:     true,
+			Default:      "$",
+			ValidateFunc: validateStateMachineDefinitionPath(),
 		},
 		"result_selector": {
-			Type:     schema.TypeString,
-			Optional: true,
-			Default:  "$",
+			Type:         schema.TypeString,
+			Optional:     true,
+			Default:      "$",
+			ValidateFunc: validateStateMachineDefinitionPath(),
 		},
 		"retry": {
 			Type:     schema.TypeList,
@@ -742,8 +757,9 @@ func dataSourceAwsSfnStateMachineDefinitionTaskState() map[string]*schema.Schema
 			ValidateFunc: validation.IntAtLeast(1),
 		},
 		"timeout_path": {
-			Type:     schema.TypeString,
-			Optional: true,
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validateStateMachineDefinitionPath(),
 		},
 		"heartbeat": {
 			Type:         schema.TypeInt,
@@ -751,8 +767,9 @@ func dataSourceAwsSfnStateMachineDefinitionTaskState() map[string]*schema.Schema
 			ValidateFunc: validation.IntAtLeast(1),
 		},
 		"heartbeat_path": {
-			Type:     schema.TypeString,
-			Optional: true,
+			Type:         schema.TypeString,
+			Optional:     true,
+			ValidateFunc: validateStateMachineDefinitionPath(),
 		},
 	}
 
@@ -774,14 +791,16 @@ func dataSourceAwsSfnStateMachineDefinitionParallelState(d int) func() map[strin
 				},
 			},
 			"result_path": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "$",
+				Type:         schema.TypeString,
+				Optional:     true,
+				Default:      "$",
+				ValidateFunc: validateStateMachineDefinitionPath(),
 			},
 			"result_selector": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "$",
+				Type:         schema.TypeString,
+				Optional:     true,
+				Default:      "$",
+				ValidateFunc: validateStateMachineDefinitionPath(),
 			},
 			"retry": {
 				Type:     schema.TypeList,
